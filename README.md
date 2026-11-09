@@ -4,6 +4,8 @@ Webapp theo dõi phiên live Facebook & TikTok: gom bình luận, thống kê t�
 
 - Kế hoạch sản phẩm và các quyết định đã chốt: [docs/KE-HOACH.md](docs/KE-HOACH.md)
 
+![Bảng điều khiển phiên live](docs/anh-bang-dieu-khien.png)
+
 ## Đã làm được (Giai đoạn 0 + 1: Thống kê)
 
 - Đăng nhập quản trị.
