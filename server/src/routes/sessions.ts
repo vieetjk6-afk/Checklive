@@ -46,10 +46,12 @@ export function sessionRoutes(app: FastifyInstance, db: DB, manager: SessionMana
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ' });
     const channels = await db.channel.findMany({ where: { id: { in: parsed.data.channelIds }, shopId: req.user.shopId } });
     if (channels.length !== parsed.data.channelIds.length) return reply.code(400).send({ error: 'Kênh không hợp lệ' });
+    const shop = await db.shop.findUniqueOrThrow({ where: { id: req.user.shopId }, select: { defaultHoldMinutes: true } });
     const s = await db.liveSession.create({
       data: {
         shopId: req.user.shopId,
         title: parsed.data.title,
+        holdMinutes: shop.defaultHoldMinutes,
         channels: { create: channels.map((c) => ({ channelId: c.id })) },
       },
     });
@@ -68,6 +70,7 @@ export function sessionRoutes(app: FastifyInstance, db: DB, manager: SessionMana
       endedAt: s.endedAt,
       peakViewers: s.peakViewers,
       createdAt: s.createdAt,
+      publicId: s.publicId,
       channels: s.channels.map((c) => ({ ...c.channel, externalLiveId: c.externalLiveId, peakViewers: c.peakViewers })),
       channelStates: manager.channelStates(s.id) ?? [],
     };
@@ -174,6 +177,8 @@ export function sessionRoutes(app: FastifyInstance, db: DB, manager: SessionMana
         phones: extractPhones(r.content ?? ''),
         platformTs: r.platformTs.getTime(),
         receivedAt: r.receivedAt.getTime(),
+        tag: r.tag ?? undefined,
+        tagKind: r.tagKind ?? undefined,
       }))
       .filter((c) => !phoneOnly || c.phones.length > 0)
       .slice(0, q.data.limit);

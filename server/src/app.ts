@@ -12,14 +12,24 @@ import { createAdapterFactory, type AdapterFactory } from './adapters/index.js';
 import { SessionManager, type Broadcaster } from './live/sessionManager.js';
 import { channelRoutes } from './routes/channels.js';
 import { sessionRoutes } from './routes/sessions.js';
+import { productRoutes } from './routes/products.js';
+import { salesRoutes } from './routes/sales.js';
+import { publicRoutes } from './routes/public.js';
+import { shopRoutes } from './routes/shop.js';
+import { OrderService } from './sales/orderService.js';
 
 export interface BuiltApp {
   app: FastifyInstance;
   io: SocketServer;
   manager: SessionManager;
+  sales: OrderService;
 }
 
-export async function buildApp(config: Config, db: DB, opts: { adapterFactory?: AdapterFactory; logger?: boolean } = {}): Promise<BuiltApp> {
+export async function buildApp(
+  config: Config,
+  db: DB,
+  opts: { adapterFactory?: AdapterFactory; logger?: boolean; expiryIntervalMs?: number } = {},
+): Promise<BuiltApp> {
   const app = Fastify({ logger: opts.logger ?? true, trustProxy: true });
 
   await app.register(cookie);
@@ -30,10 +40,33 @@ export async function buildApp(config: Config, db: DB, opts: { adapterFactory?: 
   const broadcaster: Broadcaster = {
     toSession: (sessionId, event, payload) => io.to(`s:${sessionId}`).emit(event, payload),
   };
+  // Gửi danh sách sản phẩm phiên (tồn kho còn lại) — gom lại tối đa 2 lần/giây mỗi phiên
+  const productTimers = new Map<string, NodeJS.Timeout>();
+  let sales!: OrderService;
+  const productsChanged = (sessionId: string) => {
+    if (productTimers.has(sessionId)) return;
+    productTimers.set(
+      sessionId,
+      setTimeout(async () => {
+        productTimers.delete(sessionId);
+        try {
+          broadcaster.toSession(sessionId, 'products', await sales.sessionProducts(sessionId));
+        } catch (err) {
+          app.log.error(err);
+        }
+      }, 500),
+    );
+  };
+  sales = new OrderService(db, {
+    order: (sessionId, order) => broadcaster.toSession(sessionId, 'order', order),
+    productsChanged,
+  });
+
   const manager = new SessionManager(
     db,
     broadcaster,
     opts.adapterFactory ?? createAdapterFactory({ eulerApiKey: config.EULER_API_KEY, fbGraphVersion: config.FB_GRAPH_VERSION }),
+    sales,
   );
 
   // Xác thực Socket.IO bằng cookie đăng nhập
@@ -65,6 +98,10 @@ export async function buildApp(config: Config, db: DB, opts: { adapterFactory?: 
   authRoutes(app, db, config);
   await app.register(async (scope) => channelRoutes(scope, db, config));
   await app.register(async (scope) => sessionRoutes(scope, db, manager));
+  await app.register(async (scope) => productRoutes(scope, db, sales));
+  await app.register(async (scope) => salesRoutes(scope, db, sales, productsChanged));
+  await app.register(async (scope) => shopRoutes(scope, db));
+  await app.register(async (scope) => publicRoutes(scope, db, sales));
 
   // Phục vụ giao diện web đã build (nếu có)
   const webDist = config.WEB_DIST ?? path.resolve(process.cwd(), '../web/dist');
@@ -80,10 +117,17 @@ export async function buildApp(config: Config, db: DB, opts: { adapterFactory?: 
 
   await ensureAdmin(db, config);
 
+  // Huỷ đơn quá hạn giữ hàng (định kỳ)
+  const expiryTimer = setInterval(() => {
+    sales.expireDue().catch((err) => app.log.error(err));
+  }, opts.expiryIntervalMs ?? 30_000);
+
   app.addHook('onClose', async () => {
+    clearInterval(expiryTimer);
+    for (const t of productTimers.values()) clearTimeout(t);
     await manager.shutdown();
     io.close();
   });
 
-  return { app, io, manager };
+  return { app, io, manager, sales };
 }

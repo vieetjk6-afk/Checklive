@@ -21,6 +21,40 @@ Webapp theo dõi phiên live Facebook & TikTok: gom bình luận, thống kê t�
 - Lưu toàn bộ vào PostgreSQL; xem lại phiên cũ; **xuất Excel** (Tổng quan, Bình luận, Người tham gia, Theo phút).
 - Giao diện dùng tốt trên điện thoại.
 
+## Đã làm được (Giai đoạn 2: Bán hàng)
+
+![Bán hàng trong lúc live](docs/anh-ban-hang-live.png)
+
+- **Kho sản phẩm**: tên, giá, ảnh, phân loại tự do (màu, size, vị… tối đa 3 thuộc tính), tồn kho và giá riêng theo từng phân loại.
+- **Sản phẩm trong phiên**: gắn sản phẩm từ kho với **mã live tự đặt** (A1, A2… hoặc mã riêng), giá live, số lượng mở bán trong phiên, giới hạn mỗi khách. Bấm **Bán / Dừng bán** khi giới thiệu từng sản phẩm.
+- **Tự tạo đơn từ bình luận**, hiểu các dạng:
+  - `A1`, `A1 2`, `A1 x2`, `2 cái A1`
+  - `A1 đỏ M`, `a1 do m 2` (không cần dấu)
+  - nhiều sản phẩm: `A1 đỏ M, A2 L`, `A1 + A3`
+  - `chốt`, `+1`, `chốt đỏ M` → sản phẩm đang bán (từ khoá chốt tự cài)
+  - Câu hỏi ("A1 còn không?") và mã không có trong phiên **không** tạo đơn; bình luận có SĐT thì SĐT được điền sẵn vào đơn.
+- **Giữ hàng chính xác**: ai bình luận trước được giữ trước, không bán quá tồn kho kể cả khi nhiều người chốt cùng lúc. Hết hàng thì vào **danh sách chờ**; có hàng lại (huỷ đơn, hết hạn, tăng tồn kho) thì người chờ đầu tiên tự được giữ hàng.
+- **Thời gian giữ hàng tuỳ chọn** theo phiên (30 phút → 7 ngày hoặc không giới hạn); quá hạn chưa xác nhận thì đơn tự huỷ.
+- Nhiều bình luận của cùng khách được **gộp vào 1 đơn**. Mỗi bình luận hiện kết quả ngay trong luồng bình luận (đã tạo đơn / hết hàng / câu hỏi / mã sai) và có nút **"Tạo đơn"** thủ công.
+- **Khách tự xác nhận** bằng QR / link: chọn phân loại còn thiếu, nhập địa chỉ (khách cũ dùng lại thông tin đã lưu), chọn COD hoặc **chuyển khoản VietQR** (đúng số tiền, nội dung là mã đơn).
+- **Nhân viên quản lý đơn**: lọc theo trạng thái, sửa phân loại / số lượng, chốt đơn, đánh dấu đã thanh toán, đã giao (trừ tồn kho), huỷ, đánh dấu khách bom hàng; xuất Excel đơn hàng.
+- **Overlay OBS / TikTok LIVE Studio**: sản phẩm đang bán, giá, số còn lại, mã QR xác nhận đơn, dòng "vừa chốt".
+
+| Khách tự xác nhận + chuyển khoản | Overlay trên màn hình live |
+|---|---|
+| <img src="docs/anh-khach-xac-nhan.png" width="260"> | <img src="docs/anh-overlay.png" width="480"> |
+
+### Cách dùng phần bán hàng
+
+1. **Cài đặt** → nhập tên shop và tài khoản ngân hàng (bấm "Quét thử" bằng app ngân hàng để kiểm tra).
+2. **Sản phẩm** → thêm sản phẩm, phân loại và tồn kho.
+3. Tạo phiên live → tab **Bán hàng** → thêm sản phẩm vào phiên (mã A1, A2…), chọn thời gian giữ hàng.
+4. Bấm **Bắt đầu theo dõi**. Trong lúc live, bấm **Bán** ở sản phẩm đang giới thiệu.
+5. Đưa mã QR "Trang tra cứu & xác nhận đơn" lên màn hình live (hoặc dùng overlay) để khách tự xác nhận.
+6. Tab **Đơn hàng** → xử lý đơn "Cần xử lý", chốt đơn, xuất Excel.
+
+> Lưu ý với TikTok: không gửi tin nhắn riêng cho khách được, nên khách tra cứu đơn bằng @username. Người khác biết username cũng có thể mở đơn đó (thông tin cá nhân luôn được che), vì vậy nhân viên vẫn cần bấm **Chốt đơn** sau khi kiểm tra.
+
 ## Chạy bằng Docker (khuyên dùng khi đưa lên VPS)
 
 ```bash
@@ -77,6 +111,7 @@ Ghi chú:
 server/   API (Fastify) + Socket.IO + bộ kết nối nền tảng + thống kê + Prisma/PostgreSQL
   src/adapters/   tiktok.ts, facebook.ts, simulator.ts — mỗi nền tảng 1 bộ chuyển đổi về định dạng sự kiện chung
   src/live/       sessionManager.ts (chạy phiên), stats.ts (tổng hợp), persistence.ts, exportXlsx.ts
+  src/sales/      parser.ts (đọc cú pháp chốt đơn), orderService.ts (giữ hàng, danh sách chờ, xác nhận), vietqr.ts
 web/      Giao diện React + Vite + Tailwind
 docs/     Kế hoạch sản phẩm
 ```

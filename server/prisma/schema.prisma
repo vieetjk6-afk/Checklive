@@ -26,12 +26,20 @@ enum SessionStatus {
 
 /// Cửa hàng. Hiện tại chỉ có 1 shop, nhưng mọi dữ liệu đều gắn shopId để sau này bán cho nhiều shop.
 model Shop {
-  id        String        @id @default(cuid())
-  name      String
-  createdAt DateTime      @default(now())
-  users     User[]
-  channels  Channel[]
-  sessions  LiveSession[]
+  id                 String        @id @default(cuid())
+  name               String
+  /// Tài khoản nhận chuyển khoản (để tạo mã VietQR)
+  bankBin            String?
+  bankAccountNo      String?
+  bankAccountName    String?
+  /// Thời gian giữ hàng mặc định cho phiên mới (phút). null = không giới hạn
+  defaultHoldMinutes Int?          @default(1440)
+  createdAt          DateTime      @default(now())
+  users              User[]
+  channels           Channel[]
+  sessions           LiveSession[]
+  products           Product[]
+  customers          Customer[]
 }
 
 model User {
@@ -64,20 +72,36 @@ model Channel {
   @@unique([shopId, platform, handle])
 }
 
+enum OrderMode {
+  /// Nhận mọi mã sản phẩm có trong phiên (trừ sản phẩm đã đóng)
+  ALL_CODES
+  /// Chỉ nhận mã của sản phẩm đang bán
+  SELLING_ONLY
+}
+
 model LiveSession {
-  id          String           @id @default(cuid())
-  shopId      String
-  shop        Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  title       String
-  status      SessionStatus    @default(DRAFT)
-  startedAt   DateTime?
-  endedAt     DateTime?
-  peakViewers Int              @default(0)
-  createdAt   DateTime         @default(now())
-  channels    SessionChannel[]
-  events      LiveEvent[]
-  users       SessionUser[]
-  minutes     SessionMinute[]
+  id            String           @id @default(cuid())
+  shopId        String
+  shop          Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title         String
+  status        SessionStatus    @default(DRAFT)
+  startedAt     DateTime?
+  endedAt       DateTime?
+  peakViewers   Int              @default(0)
+  createdAt     DateTime         @default(now())
+  /// ID công khai cho trang tra cứu đơn / overlay (khó đoán)
+  publicId      String           @unique @default(cuid())
+  /// Giữ hàng bao lâu khi khách chưa xác nhận (phút). null = không giới hạn
+  holdMinutes   Int?             @default(1440)
+  orderMode     OrderMode        @default(ALL_CODES)
+  /// Từ khoá chốt cho sản phẩm đang bán (đã bỏ dấu, chữ thường)
+  orderKeywords String[]         @default(["chot", "+1", "lay"])
+  channels      SessionChannel[]
+  events        LiveEvent[]
+  users         SessionUser[]
+  minutes       SessionMinute[]
+  products      SessionProduct[]
+  orders        Order[]
 }
 
 model SessionChannel {
@@ -113,6 +137,10 @@ model LiveEvent {
   value          Int         @default(0)
   platformTs     DateTime
   receivedAt     DateTime
+  /// Kết quả xử lý chốt đơn của bình luận (VD "Đơn K7P2Q: A1 Đỏ/M ×2")
+  tag            String?
+  /// order | waitlist | warn | question
+  tagKind        String?
 
   @@index([sessionId, type, platformTs])
   @@index([sessionId, platformUserId])
@@ -154,4 +182,202 @@ model SessionMinute {
   viewersMax Int         @default(0)
 
   @@id([sessionId, platform, minute])
+}
+
+// ───────────────────────── BÁN HÀNG ─────────────────────────
+
+/// Sản phẩm trong kho (dùng chung cho mọi phiên)
+model Product {
+  id              String           @id @default(cuid())
+  shopId          String
+  shop            Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  imageUrl        String?
+  /// Giá gốc (VNĐ)
+  price           Int
+  /// Thuộc tính phân loại: [{ "name": "Màu", "values": ["Đỏ", "Xanh"] }, …]
+  attributes      Json             @default("[]")
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  variants        ProductVariant[]
+  sessionProducts SessionProduct[]
+}
+
+/// Phân loại (biến thể) của sản phẩm. Sản phẩm không có phân loại vẫn có 1 biến thể mặc định.
+model ProductVariant {
+  id         String      @id @default(cuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// {"Màu": "Đỏ", "Size": "M"}; {} = biến thể mặc định
+  options    Json        @default("{}")
+  sku        String?
+  /// null = theo giá sản phẩm
+  price      Int?
+  /// Tồn kho thực tế
+  stock      Int         @default(0)
+  /// Đang giữ cho các đơn chưa giao
+  reserved   Int         @default(0)
+  sortOrder  Int         @default(0)
+  orderItems OrderItem[]
+}
+
+enum SessionProductStatus {
+  WAITING
+  SELLING
+  CLOSED
+}
+
+/// Sản phẩm được gắn vào phiên live, có mã live riêng
+model SessionProduct {
+  id               String               @id @default(cuid())
+  sessionId        String
+  session          LiveSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  productId        String
+  /// API không cho xoá sản phẩm đã dùng trong phiên (chỉ ẩn), Cascade để xoá shop không bị chặn
+  product          Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Mã live do người bán đặt (VD: A1)
+  code             String
+  /// Mã đã chuẩn hoá để so khớp
+  codeNorm         String
+  /// Giá bán trong phiên. null = giá sản phẩm / biến thể
+  livePrice        Int?
+  /// Tổng số lượng mở bán trong phiên. null = theo tồn kho
+  sessionLimit     Int?
+  /// Mỗi khách tối đa bao nhiêu. null = không giới hạn
+  perCustomerLimit Int?
+  /// Số lượng đang giữ / đã chốt trong phiên
+  reservedQty      Int                  @default(0)
+  status           SessionProductStatus @default(WAITING)
+  sortOrder        Int                  @default(0)
+  openedAt         DateTime?
+  createdAt        DateTime             @default(now())
+  orderItems       OrderItem[]
+
+  @@unique([sessionId, codeNorm])
+}
+
+model Customer {
+  id          String             @id @default(cuid())
+  shopId      String
+  shop        Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name        String
+  phone       String?
+  address     String?
+  note        String?
+  /// Khách bom hàng / cần cảnh báo
+  blacklisted Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  identities  CustomerIdentity[]
+  orders      Order[]
+
+  @@index([shopId, phone])
+}
+
+/// Tài khoản mạng xã hội của khách (1 khách có thể có cả FB và TikTok)
+model CustomerIdentity {
+  id             String   @id @default(cuid())
+  shopId         String
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  platform       Platform
+  platformUserId String
+  name           String?
+  handle         String?
+
+  @@unique([shopId, platform, platformUserId])
+}
+
+enum OrderStatus {
+  /// Tạo từ bình luận, đang giữ hàng, chờ khách xác nhận
+  PENDING
+  /// Khách đã xác nhận thông tin
+  CONFIRMED
+  /// Nhân viên đã chốt
+  APPROVED
+  CANCELLED
+  /// Quá thời gian giữ hàng
+  EXPIRED
+  /// Đã giao xong (trừ tồn kho)
+  COMPLETED
+}
+
+enum PaymentMethod {
+  COD
+  BANK
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  shopId          String
+  sessionId       String
+  session         LiveSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// Mã đơn ngắn để khách ghi nội dung chuyển khoản
+  code            String        @unique
+  customerId      String?
+  customer        Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  platform        Platform
+  platformUserId  String
+  displayName     String?
+  handle          String?
+  status          OrderStatus   @default(PENDING)
+  holdUntil       DateTime?
+  /// Mã bí mật cho link / QR xác nhận đơn
+  confirmToken    String        @unique
+  receiverName    String?
+  receiverPhone   String?
+  receiverAddress String?
+  note            String?
+  paymentMethod   PaymentMethod @default(COD)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  total           Int           @default(0)
+  cancelReason    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  confirmedAt     DateTime?
+  approvedAt      DateTime?
+  cancelledAt     DateTime?
+  completedAt     DateTime?
+  items           OrderItem[]
+
+  @@index([sessionId, status])
+  @@index([sessionId, platform, platformUserId])
+}
+
+enum OrderItemStatus {
+  /// Đã giữ hàng
+  RESERVED
+  /// Hết hàng, đang chờ
+  WAITLIST
+  /// Chưa rõ phân loại (màu/size…), chưa giữ hàng
+  NEEDS_VARIANT
+  CANCELLED
+}
+
+model OrderItem {
+  id               String          @id @default(cuid())
+  orderId          String
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sessionProductId String
+  sessionProduct   SessionProduct  @relation(fields: [sessionProductId], references: [id], onDelete: Cascade)
+  variantId        String?
+  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  code             String
+  productName      String
+  variantLabel     String?
+  unitPrice        Int
+  quantity         Int
+  status           OrderItemStatus
+  /// Bình luận gốc tạo ra dòng này
+  sourceText       String?
+  createdAt        DateTime        @default(now())
+
+  @@index([sessionProductId, status, createdAt])
 }

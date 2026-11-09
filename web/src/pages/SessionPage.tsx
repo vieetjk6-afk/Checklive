@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { io, type Socket } from 'socket.io-client';
 import { api } from '../lib/api';
 import { SESSION_STATUS, fmtDateTime, fmtDuration, fmtNum } from '../lib/format';
-import type { Activity, ChannelState, Comment, Platform, SessionDetail, Stats } from '../lib/types';
+import type { Activity, ChannelState, Comment, Order, Platform, SessionDetail, SessionProduct, Stats } from '../lib/types';
 import ActivityChart from '../components/ActivityChart';
 import ActivityList from '../components/ActivityList';
 import CommentFeed from '../components/CommentFeed';
 import StatCards from '../components/StatCards';
 import TopUsers from '../components/TopUsers';
 import { PlatformBadge, StatusDot } from '../components/ui';
+import SalesTab from '../components/sales/SalesTab';
+import OrdersTab from '../components/sales/OrdersTab';
+import SellingBar from '../components/sales/SellingBar';
+import ManualOrder from '../components/sales/ManualOrder';
+
+type Tab = 'live' | 'sales' | 'orders';
 
 const MAX_COMMENTS = 2000;
 const sig = (c: Comment) => `${c.platform}|${c.user?.id ?? ''}|${c.platformTs}|${c.content}`;
@@ -27,7 +33,26 @@ export default function SessionPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [connected, setConnected] = useState(false);
+  const [products, setProducts] = useState<SessionProduct[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [manualFor, setManualFor] = useState<Comment | null>(null);
+  const [params, setParams] = useSearchParams();
+  const tab = (params.get('tab') as Tab) || 'live';
+  const setTab = (t: Tab) => setParams(t === 'live' ? {} : { tab: t }, { replace: true });
   const seen = useRef(new Set<string>());
+
+  const loadProducts = useCallback(() => {
+    api<SessionProduct[]>(`/api/sessions/${id}/products`).then(setProducts).catch(() => undefined);
+  }, [id]);
+  const upsertOrder = useCallback((o: Order) => {
+    setOrders((prev) => {
+      const i = prev.findIndex((x) => x.id === o.id);
+      if (i === -1) return [o, ...prev];
+      const next = prev.slice();
+      next[i] = o;
+      return next;
+    });
+  }, []);
 
   const addComments = useCallback((list: Comment[], position: 'top' | 'bottom') => {
     const fresh = list.filter((c) => {
@@ -53,6 +78,8 @@ export default function SessionPage() {
     setComments([]);
     setActivities([]);
     loadSession().catch((e) => setError(e.message));
+    loadProducts();
+    api<Order[]>(`/api/sessions/${id}/orders`).then(setOrders).catch(() => undefined);
     api<Stats>(`/api/sessions/${id}/stats`).then(setStats).catch(() => undefined);
     api<{ items: Comment[]; nextBefore: string | null }>(`/api/sessions/${id}/comments?limit=200`)
       .then((r) => {
@@ -60,7 +87,7 @@ export default function SessionPage() {
         setNextBefore(r.nextBefore);
       })
       .catch(() => undefined);
-  }, [id, loadSession, addComments]);
+  }, [id, loadSession, addComments, loadProducts]);
 
   // Kết nối realtime
   useEffect(() => {
@@ -79,11 +106,16 @@ export default function SessionPage() {
     socket.on('comment', (c: Comment) => addComments([c], 'top'));
     socket.on('activity', (a: Activity) => setActivities((prev) => [a, ...prev].slice(0, 100)));
     socket.on('ended', () => void loadSession());
+    socket.on('products', (p: SessionProduct[]) => setProducts(p));
+    socket.on('order', (o: Order) => upsertOrder(o));
+    socket.on('commentTag', (t: { key: string; tag: string; tagKind: Comment['tagKind'] }) =>
+      setComments((prev) => prev.map((c) => (c.key === t.key ? { ...c, tag: t.tag, tagKind: t.tagKind } : c))),
+    );
     return () => {
       socket.emit('leave', id);
       socket.close();
     };
-  }, [id, addComments, loadSession]);
+  }, [id, addComments, loadSession, upsertOrder]);
 
   const loadMore = async () => {
     if (!nextBefore) return;
@@ -158,6 +190,29 @@ export default function SessionPage() {
 
       {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
+      {/* Tab */}
+      <div className="flex gap-1 border-b border-slate-200">
+        {(
+          [
+            ['live', 'Theo dõi'],
+            ['sales', `Bán hàng${products.length ? ` (${products.length})` : ''}`],
+            ['orders', `Đơn hàng${orders.length ? ` (${orders.length})` : ''}`],
+          ] as [Tab, string][]
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${tab === k ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'sales' && <SalesTab sessionId={id} products={products} onProductsChanged={loadProducts} />}
+      {tab === 'orders' && <OrdersTab sessionId={id} orders={orders} products={products} />}
+      {tab === 'live' && (
+      <>
       {/* Trạng thái từng kênh */}
       <div className="flex flex-wrap gap-2">
         {session.channels.map((c) => {
@@ -189,6 +244,8 @@ export default function SessionPage() {
 
       {stats && <StatCards stats={stats} hasFacebook={platforms.includes('FACEBOOK')} />}
 
+      <SellingBar sessionId={id} products={products} onChanged={loadProducts} />
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
         <div className="min-w-0 space-y-4">
           <div className="card p-3">
@@ -207,8 +264,12 @@ export default function SessionPage() {
           canLoadMore={!!nextBefore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}
+          onCreateOrder={products.length ? setManualFor : undefined}
         />
       </div>
+      </>
+      )}
+      {manualFor && <ManualOrder sessionId={id} comment={manualFor} products={products} onClose={() => setManualFor(null)} />}
     </div>
   );
 }

@@ -50,6 +50,9 @@ export interface LiveEvent {
   value: number;
   platformTs: number;
   receivedAt: number;
+  /** Kết quả xử lý chốt đơn (chỉ với bình luận) */
+  tag?: string;
+  tagKind?: string;
 }
 
 export type ChannelStatus =

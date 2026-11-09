@@ -4,6 +4,7 @@ import type { AdapterEvent, ChannelState, LiveAdapter, LiveEvent, LiveUser, Plat
 import type { AdapterFactory } from '../adapters/index.js';
 import { loadAggregator, saveAggregates, saveEvents } from './persistence.js';
 import type { StatsAggregator, StatsSnapshot } from './stats.js';
+import type { OrderService } from '../sales/orderService.js';
 
 /** Bình luận gửi xuống giao diện */
 export interface CommentDTO {
@@ -15,6 +16,8 @@ export interface CommentDTO {
   phones: string[];
   platformTs: number;
   receivedAt: number;
+  tag?: string;
+  tagKind?: string;
 }
 
 /** Hoạt động khác (share, follow, quà) gửi xuống giao diện */
@@ -30,8 +33,10 @@ export interface ActivityDTO {
   platformTs: number;
 }
 
+export type SessionEvent = 'state' | 'stats' | 'comment' | 'activity' | 'ended' | 'commentTag' | 'order' | 'products';
+
 export interface Broadcaster {
-  toSession(sessionId: string, event: 'state' | 'stats' | 'comment' | 'activity' | 'ended', payload: unknown): void;
+  toSession(sessionId: string, event: SessionEvent, payload: unknown): void;
 }
 
 export class SessionConflictError extends Error {}
@@ -47,6 +52,8 @@ export function toCommentDTO(e: LiveEvent): CommentDTO {
     phones: extractPhones(content),
     platformTs: e.platformTs,
     receivedAt: e.receivedAt,
+    tag: e.tag,
+    tagKind: e.tagKind,
   };
 }
 
@@ -63,13 +70,21 @@ class RunningSession {
   private flushing = false;
   private lastPeak = -1;
   private lastChannelInfo = new Map<string, string>();
+  /** Hàng đợi xử lý chốt đơn: xử lý tuần tự theo thứ tự bình luận đến */
+  private salesQueue: Promise<void> = Promise.resolve();
 
   constructor(
     readonly id: string,
     readonly stats: StatsAggregator,
     private db: DB,
     private out: Broadcaster,
+    private sales?: OrderService,
   ) {}
+
+  /** Chờ xử lý xong các bình luận đang trong hàng đợi chốt đơn */
+  drain(): Promise<void> {
+    return this.salesQueue;
+  }
 
   startTimers() {
     this.timers.push(setInterval(() => this.pushStats(), 1000));
@@ -110,11 +125,35 @@ class RunningSession {
     };
     this.stats.add(e);
     this.statsDirty = true;
-    if (e.type !== 'join') this.buffer.push(e);
 
     if (e.type === 'comment') {
       this.out.toSession(this.id, 'comment', toCommentDTO(e));
-    } else if (e.type === 'share' || e.type === 'follow' || e.type === 'gift') {
+      const sales = this.sales;
+      if (sales) {
+        // Lưu bình luận sau khi xử lý chốt đơn xong để lưu kèm kết quả (tag)
+        this.salesQueue = this.salesQueue
+          .then(async () => {
+            try {
+              const out = await sales.handleComment(this.id, { platform, user: e.user, content: e.content ?? '' });
+              if (out.tag) {
+                e.tag = out.tag;
+                e.tagKind = out.tagKind;
+                this.out.toSession(this.id, 'commentTag', { key: e.key, tag: out.tag, tagKind: out.tagKind, orderId: out.orderId });
+              }
+            } catch (err) {
+              console.error(`[session ${this.id}] lỗi xử lý chốt đơn`, err);
+              e.tag = 'Lỗi khi tạo đơn — hãy tạo thủ công';
+              e.tagKind = 'warn';
+              this.out.toSession(this.id, 'commentTag', { key: e.key, tag: e.tag, tagKind: e.tagKind });
+            }
+          })
+          .finally(() => this.buffer.push(e));
+        return;
+      }
+    }
+    if (e.type !== 'join') this.buffer.push(e);
+
+    if (e.type === 'share' || e.type === 'follow' || e.type === 'gift') {
       const a: ActivityDTO = {
         key: e.key, channelId, platform, type: e.type, user: e.user, content: e.content,
         count: e.count, value: e.value, platformTs: e.platformTs,
@@ -207,6 +246,7 @@ export class SessionManager {
     private db: DB,
     private out: Broadcaster,
     private createAdapter: AdapterFactory,
+    private sales?: OrderService,
   ) {}
 
   isRunning(sessionId: string) {
@@ -237,7 +277,7 @@ export class SessionManager {
     }
 
     const stats = await loadAggregator(this.db, sessionId);
-    const rs = new RunningSession(sessionId, stats, this.db, this.out);
+    const rs = new RunningSession(sessionId, stats, this.db, this.out, this.sales);
     this.running.set(sessionId, rs);
 
     if (session.status !== 'RUNNING') {
@@ -284,6 +324,7 @@ export class SessionManager {
   private async detach(rs: RunningSession) {
     rs.stopTimers();
     await Promise.allSettled([...rs.adapters.values()].map((a) => a.stop()));
+    await rs.drain();
     await rs.flushAll();
   }
 

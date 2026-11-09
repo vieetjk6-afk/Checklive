@@ -39,6 +39,7 @@ export interface ChannelState {
 }
 
 export interface SessionDetail extends Omit<SessionSummary, 'channels'> {
+  publicId: string;
   channels: { id: string; name: string; platform: Platform; handle: string; isOwn: boolean; peakViewers: number }[];
   channelStates: ChannelState[];
 }
@@ -54,6 +55,9 @@ export interface Comment {
   phones: string[];
   platformTs: number;
   receivedAt: number;
+  /** Kết quả xử lý chốt đơn */
+  tag?: string;
+  tagKind?: 'order' | 'waitlist' | 'warn' | 'question';
 }
 
 export interface Activity {
@@ -82,4 +86,109 @@ export interface Stats {
   peakViewers: number;
   series: SeriesPoint[];
   top: { comments: TopUser[]; likes: TopUser[]; shares: TopUser[]; gifts: TopUser[] };
+}
+
+// ───────── Bán hàng ─────────
+
+export interface Attribute { name: string; values: string[] }
+
+export interface Variant {
+  id: string;
+  options: Record<string, string>;
+  label: string | null;
+  sku: string | null;
+  price: number | null;
+  stock: number;
+  reserved: number;
+  available: number;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  price: number;
+  attributes: Attribute[];
+  active: boolean;
+  variants: Variant[];
+}
+
+export type SessionProductStatus = 'WAITING' | 'SELLING' | 'CLOSED';
+
+export interface SessionProduct {
+  id: string;
+  code: string;
+  status: SessionProductStatus;
+  livePrice: number | null;
+  sessionLimit: number | null;
+  perCustomerLimit: number | null;
+  reservedQty: number;
+  sortOrder: number;
+  openedAt: string | null;
+  orderedQty: number;
+  waitlistQty: number;
+  needsVariantQty: number;
+  available: number;
+  product: { id: string; name: string; imageUrl: string | null; price: number; attributes: Attribute[]; variants: Variant[] };
+}
+
+export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'APPROVED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+export type OrderItemStatus = 'RESERVED' | 'WAITLIST' | 'NEEDS_VARIANT' | 'CANCELLED';
+
+export interface OrderItem {
+  id: string;
+  sessionProductId: string;
+  variantId: string | null;
+  code: string;
+  productName: string;
+  variantLabel: string | null;
+  unitPrice: number;
+  quantity: number;
+  status: OrderItemStatus;
+  sourceText: string | null;
+  createdAt: string;
+}
+
+export interface Order {
+  id: string;
+  code: string;
+  sessionId: string;
+  status: OrderStatus;
+  platform: Platform;
+  platformUserId: string;
+  displayName: string | null;
+  handle: string | null;
+  customer: { id: string; name: string; phone: string | null; address: string | null; blacklisted: boolean; note: string | null } | null;
+  receiverName: string | null;
+  receiverPhone: string | null;
+  receiverAddress: string | null;
+  note: string | null;
+  paymentMethod: 'COD' | 'BANK';
+  paymentStatus: 'UNPAID' | 'PAID';
+  total: number;
+  holdUntil: string | null;
+  confirmToken: string;
+  cancelReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  confirmedAt: string | null;
+  approvedAt: string | null;
+  completedAt: string | null;
+  items: OrderItem[];
+}
+
+export interface SalesSettings {
+  holdMinutes: number | null;
+  orderMode: 'ALL_CODES' | 'SELLING_ONLY';
+  orderKeywords: string[];
+  publicId: string;
+}
+
+export interface ShopSettings {
+  name: string;
+  bankBin: string | null;
+  bankAccountNo: string | null;
+  bankAccountName: string | null;
+  defaultHoldMinutes: number | null;
 }

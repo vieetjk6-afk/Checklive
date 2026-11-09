@@ -22,6 +22,8 @@ export function toEventRow(e: LiveEvent): Prisma.LiveEventCreateManyInput {
     value: e.value,
     platformTs: new Date(e.platformTs),
     receivedAt: new Date(e.receivedAt),
+    tag: e.tag ?? null,
+    tagKind: e.tagKind ?? null,
   };
 }
 
