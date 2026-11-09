@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  TIKTOK
+  FACEBOOK
+  SIMULATOR
+}
+
+enum UserRole {
+  OWNER
+  STAFF
+}
+
+enum SessionStatus {
+  DRAFT
+  RUNNING
+  ENDED
+}
+
+/// Cửa hàng. Hiện tại chỉ có 1 shop, nhưng mọi dữ liệu đều gắn shopId để sau này bán cho nhiều shop.
+model Shop {
+  id        String        @id @default(cuid())
+  name      String
+  createdAt DateTime      @default(now())
+  users     User[]
+  channels  Channel[]
+  sessions  LiveSession[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(OWNER)
+  createdAt    DateTime @default(now())
+}
+
+/// Kênh live: TikTok (@username), Fanpage Facebook, hoặc kênh giả lập để thử.
+model Channel {
+  id          String           @id @default(cuid())
+  shopId      String
+  shop        Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  platform    Platform
+  name        String
+  /// TikTok: username (không có @). Facebook: Page ID. Giả lập: tuỳ ý.
+  handle      String
+  /// Facebook: Page access token.
+  accessToken String?
+  /// true = kênh của mình, false = kênh người khác đang theo dõi
+  isOwn       Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  sessions    SessionChannel[]
+
+  @@unique([shopId, platform, handle])
+}
+
+model LiveSession {
+  id          String           @id @default(cuid())
+  shopId      String
+  shop        Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title       String
+  status      SessionStatus    @default(DRAFT)
+  startedAt   DateTime?
+  endedAt     DateTime?
+  peakViewers Int              @default(0)
+  createdAt   DateTime         @default(now())
+  channels    SessionChannel[]
+  events      LiveEvent[]
+  users       SessionUser[]
+  minutes     SessionMinute[]
+}
+
+model SessionChannel {
+  id             String      @id @default(cuid())
+  sessionId      String
+  session        LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  channelId      String
+  channel        Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  /// ID phiên live phía nền tảng (Facebook live video id / TikTok room id)
+  externalLiveId String?
+  peakViewers    Int         @default(0)
+
+  @@unique([sessionId, channelId])
+}
+
+/// Mọi sự kiện thô nhận được trong phiên (bình luận, like, share, quà, follow, vào phòng).
+model LiveEvent {
+  id             BigInt      @id @default(autoincrement())
+  sessionId      String
+  session        LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  channelId      String
+  platform       Platform
+  type           String
+  /// ID sự kiện phía nền tảng (để chống trùng), có thể rỗng
+  externalId     String?
+  platformUserId String?
+  userName       String?
+  userHandle     String?
+  avatarUrl      String?
+  content        String?
+  count          Int         @default(1)
+  /// Giá trị (ví dụ số kim cương của quà TikTok)
+  value          Int         @default(0)
+  platformTs     DateTime
+  receivedAt     DateTime
+
+  @@index([sessionId, type, platformTs])
+  @@index([sessionId, platformUserId])
+}
+
+/// Tổng hợp theo từng người dùng trong 1 phiên.
+model SessionUser {
+  sessionId      String
+  session        LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  platform       Platform
+  platformUserId String
+  userName       String?
+  userHandle     String?
+  avatarUrl      String?
+  comments       Int         @default(0)
+  likes          Int         @default(0)
+  shares         Int         @default(0)
+  follows        Int         @default(0)
+  gifts          Int         @default(0)
+  giftValue      Int         @default(0)
+  firstSeenAt    DateTime
+  lastSeenAt     DateTime
+
+  @@id([sessionId, platform, platformUserId])
+}
+
+/// Tổng hợp theo từng phút (để vẽ biểu đồ).
+model SessionMinute {
+  sessionId  String
+  session    LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  platform   Platform
+  minute     DateTime
+  comments   Int         @default(0)
+  likes      Int         @default(0)
+  shares     Int         @default(0)
+  follows    Int         @default(0)
+  gifts      Int         @default(0)
+  joins      Int         @default(0)
+  viewersMax Int         @default(0)
+
+  @@id([sessionId, platform, minute])
+}

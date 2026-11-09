@@ -1,0 +1,37 @@
+# Chạy toàn bộ Checklive: docker compose up -d --build
+# Trước khi chạy: copy .env.example thành .env và sửa JWT_SECRET, ADMIN_PASSWORD
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: checklive
+      POSTGRES_PASSWORD: checklive
+      POSTGRES_DB: checklive
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U checklive"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://checklive:checklive@db:5432/checklive
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:?Cần đặt JWT_SECRET trong file .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@checklive.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Cần đặt ADMIN_PASSWORD trong file .env}
+      EULER_API_KEY: ${EULER_API_KEY:-}
+      FB_GRAPH_VERSION: ${FB_GRAPH_VERSION:-v26.0}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

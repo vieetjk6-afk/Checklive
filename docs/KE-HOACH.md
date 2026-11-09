@@ -18,6 +18,32 @@
 
 ---
 
+## 1b. Quyết định đã chốt (09/11/2026)
+
+| # | Câu hỏi | Trả lời | Ảnh hưởng tới thiết kế |
+|---|---|---|---|
+| A1 | Dùng cho ai | Cá nhân trước, sau bán cho shop thu phí | Dữ liệu đã gắn `shopId` từ đầu. Đăng nhập Facebook bằng OAuth + Meta App Review để giai đoạn bán tool |
+| A2 | Theo dõi kênh người khác | Có | TikTok: làm được ngay. Facebook: API **không** cho đọc Page người khác → xem mục 2b |
+| A3 | Fanpage hay trang cá nhân | Cả hai | Fanpage: API chính thức. Trang cá nhân: API **không** hỗ trợ → xem mục 2b |
+| A4 | Gộp FB + TikTok | Có | Một phiên gồm nhiều kênh, thống kê gộp và tách theo nền tảng ✅ |
+| A5 | Quy mô | 1 tài khoản chạy 1 live cùng lúc | Mỗi kênh chỉ được chạy trong 1 phiên tại một thời điểm ✅ |
+| A6 | Rủi ro TikTok không chính thức | Chấp nhận | Dùng `tiktok-live-connector`, thiết kế adapter để thay nhà cung cấp dễ dàng ✅ |
+| B7 | Ngành hàng | Đa dạng | Biến thể sản phẩm dạng **thuộc tính tự do** (màu, size, vị, dung tích…), không cố định |
+| B8 | Kho | Checklive tự quản, xuất Excel | Chưa đồng bộ phần mềm khác |
+| B9 | Cú pháp mã | Tự đặt mã trong phiên, có "chốt", có số lượng | Mã live tự đặt + bình luận "chốt"/"+1" gán cho SP đang bán + đọc số lượng |
+| B10 | Xác nhận đơn | Khách quét QR tự xác nhận + nhân viên xác nhận và chốt | Trang xác nhận qua QR/link + màn hình nhân viên duyệt đơn |
+| B11 | Thanh toán | COD + chuyển khoản | VietQR + đối soát tự động |
+| B12 | In phiếu / vận chuyển | Làm sau | Để giai đoạn 4 |
+| B13 | TikTok Shop | Chưa dùng | Chốt đơn qua bình luận TikTok không vướng chính sách TikTok Shop |
+| C14 | Game | Đoán số quay, đoán chữ… | Vòng quay số + đoán số, ô chữ mở dần, đố vui, quay may mắn |
+| C15 | Thiết bị live | Điện thoại, máy tính, OBS | Overlay cho OBS/TikTok LIVE Studio. Khi live bằng điện thoại: điều khiển game trên thiết bị thứ hai, công bố kết quả bằng bình luận trả lời (FB) |
+| C16 | Điều kiện chơi game | Like, share, follow | **Chỉ TikTok kiểm tra được.** Facebook chỉ kiểm tra được "đã bình luận" |
+| D17 | Ưu tiên | Thống kê → Bán hàng → Game | Đúng thứ tự lộ trình mục 5 |
+| D18 | Server, Meta Business | Chưa có | Đóng gói Docker để chạy trên VPS bất kỳ. Giai đoạn đầu dùng token dán tay (không cần Meta duyệt app) |
+| D19 | App điện thoại | Webapp là đủ | Giao diện responsive ✅ |
+
+---
+
 ## 2. Thực tế kỹ thuật: lấy được gì từ mỗi nền tảng
 
 Phần này quyết định giới hạn của sản phẩm, nên cần đọc kỹ.
@@ -41,6 +67,19 @@ Phần này quyết định giới hạn của sản phẩm, nên cần đọc k
 - Mặc định Facebook **lọc bớt bình luận "chất lượng thấp"** trên live. Cần tắt bộ lọc này (`live_filter=no_filter`) để không sót bình luận chốt đơn hoặc trả lời game.
 - Thời gian bình luận của Facebook chỉ chính xác đến **giây**. Khi nhiều người trả lời đúng trong cùng 1 giây, hệ thống xếp hạng theo thứ tự nhận được. Cần nói rõ điều này trong thể lệ game.
 - Để dùng cho Fanpage của **người khác** (bán tool), Meta App phải qua **App Review** và **Business Verification** (thường mất 1–4 tuần). Nếu chỉ dùng cho Fanpage của bạn, có thể chạy ngay ở chế độ phát triển (admin/tester của app).
+
+### 2b. Facebook trang cá nhân và Fanpage của người khác
+
+API chính thức của Facebook không đọc được live trên **trang cá nhân** và live của **Fanpage người khác**. Phương án đề xuất (làm sau, khi phần chính đã ổn):
+
+- **Tiện ích trình duyệt Chrome "Checklive Connector"**: admin mở trang live trên trình duyệt máy tính. Tiện ích đọc bình luận đang hiển thị trên trang và gửi về Checklive như một kênh bình thường.
+- Ưu điểm: dùng tài khoản và phiên đăng nhập của chính admin, không cần quyền API.
+- Nhược điểm:
+  - Phải mở sẵn tab live trên máy tính trong suốt buổi.
+  - Dễ hỏng khi Facebook đổi giao diện.
+  - Chỉ đọc được những gì trang hiển thị: tên và bình luận, không có ID ổn định, không có số người xem chính xác.
+  - Không trả lời hay ẩn bình luận tự động được.
+- **Không khuyến khích** cách chạy trình duyệt ẩn trên server bằng cookie tài khoản: dễ bị Facebook khoá tài khoản (checkpoint).
 
 ---
 
@@ -74,12 +113,12 @@ Phần này quyết định giới hạn của sản phẩm, nên cần đọc k
 `{ nền tảng, phiên live, loại (comment | like | share | gift | follow | join | viewer_count), người dùng {id, tên, avatar}, nội dung, số lượng, thời gian theo nền tảng, thời gian nhận, dữ liệu gốc }`
 → Game, chốt đơn và thống kê **không cần biết** sự kiện đến từ FB hay TikTok. Sau này thêm YouTube, Shopee Live… chỉ cần viết thêm 1 bộ chuyển đổi (adapter).
 
-**Công nghệ:**
-- Frontend: Next.js + Tailwind + shadcn/ui
-- Backend API: NestJS (hoặc Fastify) + Prisma
-- CSDL: PostgreSQL; Redis (BullMQ + pub/sub)
-- Realtime: Socket.IO
-- Triển khai: Docker Compose trên VPS (khởi điểm 2 vCPU / 4 GB RAM), domain + HTTPS
+**Công nghệ (đang dùng):**
+- Frontend: React + Vite + Tailwind. Webapp quản trị không cần SEO nên chọn SPA cho gọn, thay vì Next.js.
+- Backend: Fastify + Socket.IO + Prisma, viết bằng TypeScript.
+- CSDL: PostgreSQL.
+- Hàng đợi: hiện xử lý trong cùng tiến trình, đủ cho quy mô 1 live/kênh. Khi bán tool cho nhiều shop sẽ thêm Redis và tách Live Worker riêng. Phần adapter đã tách sẵn nên không phải viết lại.
+- Triển khai: Docker Compose trên VPS (khởi điểm 2 vCPU / 4 GB RAM), domain + HTTPS.
 
 ---
 
@@ -192,8 +231,8 @@ Doanh thu theo phiên và theo sản phẩm. **Phễu chuyển đổi:** bình l
 
 | Giai đoạn | Nội dung | Thời gian |
 |---|---|---|
-| **0. Thử nghiệm kỹ thuật** | Kết nối Fanpage + TikTok thật, nhận bình luận realtime, lưu DB, đo độ trễ | ~1 tuần |
-| **1. Nền tảng** | Tài khoản, kết nối kênh, phiên live, bảng điều khiển realtime, thống kê cơ bản, xuất Excel | 3–4 tuần |
+| **0. Thử nghiệm kỹ thuật** | Kết nối Fanpage + TikTok thật, nhận bình luận realtime, lưu DB, đo độ trễ | ~1 tuần — **code xong, cần chạy thử với kênh thật** |
+| **1. Nền tảng** | Tài khoản, kết nối kênh, phiên live, bảng điều khiển realtime, thống kê cơ bản, xuất Excel | 3–4 tuần — **bản đầu đã xong** (xem README) |
 | **2. Bán hàng** | Kho SP, giỏ phiên live, đọc cú pháp, đơn nháp, giữ hàng, trang xác nhận, nhắn tin FB, overlay SP | 3–4 tuần |
 | **3. Game show** | Các loại game, kịch bản, overlay game, xuất log | 2–3 tuần |
 | **4. Mở rộng** | VietQR + đối soát, vận chuyển, AI phân loại bình luận, báo cáo nâng cao, đa shop + gói cước | tuỳ chọn |
