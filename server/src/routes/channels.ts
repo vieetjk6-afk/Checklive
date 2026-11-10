@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../config.js';
@@ -5,6 +6,9 @@ import type { DB } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { checkFacebookPage } from '../adapters/facebook.js';
 import { checkTikTokUser } from '../adapters/tiktok.js';
+import type { ExtensionHub } from '../adapters/extension.js';
+
+export const newConnectorToken = () => `clx_${crypto.randomBytes(24).toString('base64url')}`;
 
 const channelInput = z.object({
   platform: z.enum(['TIKTOK', 'FACEBOOK', 'SIMULATOR']),
@@ -12,6 +16,8 @@ const channelInput = z.object({
   handle: z.string().trim().min(1, 'Thiếu username / Page ID').max(200),
   accessToken: z.string().trim().optional(),
   isOwn: z.boolean().default(true),
+  /** EXTENSION: Facebook trang cá nhân / Group / Fanpage người khác, dữ liệu do tiện ích Chrome gửi */
+  connector: z.enum(['API', 'EXTENSION']).default('API'),
 });
 
 /** Chuẩn hoá: TikTok bỏ @ và phần link thừa */
@@ -25,13 +31,13 @@ export function normalizeHandle(platform: string, handle: string): string {
   return h;
 }
 
-/** Không trả token ra giao diện, chỉ báo đã có hay chưa */
-function publicChannel(c: { accessToken: string | null } & Record<string, unknown>) {
-  const { accessToken, ...rest } = c;
-  return { ...rest, hasAccessToken: !!accessToken };
+/** Không trả Page access token ra giao diện, chỉ báo đã có hay chưa. Mã kết nối tiện ích thì cần hiện để sao chép. */
+function publicChannel(c: { accessToken: string | null; connectorToken: string | null } & Record<string, unknown>) {
+  const { accessToken, connectorToken, ...rest } = c;
+  return { ...rest, hasAccessToken: !!accessToken, connectorToken };
 }
 
-export function channelRoutes(app: FastifyInstance, db: DB, config: Config) {
+export function channelRoutes(app: FastifyInstance, db: DB, config: Config, hub?: ExtensionHub) {
   app.addHook('preHandler', requireAuth);
 
   app.get('/api/channels', async (req) => {
@@ -44,23 +50,40 @@ export function channelRoutes(app: FastifyInstance, db: DB, config: Config) {
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ' });
     const input = parsed.data;
     const handle = normalizeHandle(input.platform, input.handle);
-    if (input.platform === 'FACEBOOK' && !input.accessToken) {
+    const viaExtension = input.connector === 'EXTENSION';
+    if (viaExtension && input.platform !== 'FACEBOOK') {
+      return reply.code(400).send({ error: 'Tiện ích Chrome hiện chỉ dùng cho Facebook' });
+    }
+    if (input.platform === 'FACEBOOK' && !viaExtension && !input.accessToken) {
       return reply.code(400).send({ error: 'Fanpage cần Page access token' });
     }
     const exists = await db.channel.findFirst({ where: { shopId: req.user.shopId, platform: input.platform, handle } });
     if (exists) return reply.code(409).send({ error: 'Kênh này đã có trong danh sách' });
-    const defaultName = input.platform === 'TIKTOK' ? `@${handle}` : input.platform === 'SIMULATOR' ? `Giả lập ${handle}` : `Fanpage ${handle}`;
+    const defaultName =
+      input.platform === 'TIKTOK' ? `@${handle}` : input.platform === 'SIMULATOR' ? `Giả lập ${handle}` : viaExtension ? `Facebook ${handle.replace(/^https?:\/\/(www\.|web\.|m\.)?facebook\.com\//, '').slice(0, 40)}` : `Fanpage ${handle}`;
     const ch = await db.channel.create({
       data: {
         shopId: req.user.shopId,
         platform: input.platform,
         handle,
         name: input.name || defaultName,
-        accessToken: input.accessToken || null,
+        accessToken: viaExtension ? null : input.accessToken || null,
         isOwn: input.isOwn,
+        connector: input.connector,
+        connectorToken: viaExtension ? newConnectorToken() : null,
       },
     });
     return publicChannel(ch);
+  });
+
+  /** Tạo mã kết nối mới (mã cũ hết hiệu lực ngay) */
+  app.post('/api/channels/:id/token', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const ch = await db.channel.findFirst({ where: { id, shopId: req.user.shopId } });
+    if (!ch) return reply.code(404).send({ error: 'Không tìm thấy kênh' });
+    if (ch.connector !== 'EXTENSION') return reply.code(400).send({ error: 'Kênh này không dùng tiện ích Chrome' });
+    const updated = await db.channel.update({ where: { id }, data: { connectorToken: newConnectorToken() } });
+    return publicChannel(updated);
   });
 
   app.patch('/api/channels/:id', async (req, reply) => {
@@ -98,6 +121,16 @@ export function channelRoutes(app: FastifyInstance, db: DB, config: Config) {
     const ch = await db.channel.findFirst({ where: { id, shopId: req.user.shopId } });
     if (!ch) return reply.code(404).send({ error: 'Không tìm thấy kênh' });
     try {
+      if (ch.connector === 'EXTENSION') {
+        const active = hub?.isActive(ch.id) ?? false;
+        return {
+          ok: true,
+          isLive: active,
+          message: active
+            ? 'Kênh đang chạy trong phiên live, chờ / đang nhận dữ liệu từ tiện ích Chrome.'
+            : 'Kênh qua tiện ích Chrome: tạo phiên live có kênh này, bấm "Bắt đầu theo dõi", rồi mở trang live Facebook và bấm "Bắt đầu" trên tiện ích.',
+        };
+      }
       if (ch.platform === 'FACEBOOK') {
         const r = await checkFacebookPage(ch.handle, ch.accessToken ?? '', config.FB_GRAPH_VERSION);
         return { ok: true, isLive: r.isLive, message: `Kết nối được Fanpage "${r.name}". ${r.isLive ? 'Đang live.' : 'Chưa live.'}` };

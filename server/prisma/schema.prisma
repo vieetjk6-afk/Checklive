@@ -53,21 +53,31 @@ model User {
   createdAt    DateTime @default(now())
 }
 
+enum ChannelConnector {
+  /// Kết nối trực tiếp (TikTok connector, Facebook Graph API, giả lập)
+  API
+  /// Dữ liệu do tiện ích Chrome gửi lên (Facebook trang cá nhân, Group, Fanpage người khác)
+  EXTENSION
+}
+
 /// Kênh live: TikTok (@username), Fanpage Facebook, hoặc kênh giả lập để thử.
 model Channel {
-  id          String           @id @default(cuid())
-  shopId      String
-  shop        Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  platform    Platform
-  name        String
+  id             String           @id @default(cuid())
+  shopId         String
+  shop           Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  platform       Platform
+  name           String
   /// TikTok: username (không có @). Facebook: Page ID. Giả lập: tuỳ ý.
-  handle      String
+  handle         String
   /// Facebook: Page access token.
-  accessToken String?
+  accessToken    String?
   /// true = kênh của mình, false = kênh người khác đang theo dõi
-  isOwn       Boolean          @default(true)
-  createdAt   DateTime         @default(now())
-  sessions    SessionChannel[]
+  isOwn          Boolean          @default(true)
+  connector      ChannelConnector @default(API)
+  /// Mã kết nối cho tiện ích Chrome (chỉ dùng được cho đúng kênh này)
+  connectorToken String?          @unique
+  createdAt      DateTime         @default(now())
+  sessions       SessionChannel[]
 
   @@unique([shopId, platform, handle])
 }
@@ -465,9 +475,9 @@ model GameAnswer {
 }
 
 model GameWinner {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   gameId         String
-  game           Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  game           Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
   rank           Int
   platform       Platform
   platformUserId String
@@ -478,8 +488,8 @@ model GameWinner {
   answeredAt     DateTime?
   prize          String?
   /// Bị loại (nhân viên loại vì không hợp lệ)
-  disqualified   Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  disqualified   Boolean   @default(false)
+  createdAt      DateTime  @default(now())
 
   @@index([gameId, rank])
 }

@@ -19,6 +19,8 @@ import { shopRoutes } from './routes/shop.js';
 import { OrderService } from './sales/orderService.js';
 import { GameService } from './games/gameService.js';
 import { gameRoutes } from './routes/games.js';
+import { extensionRoutes } from './routes/extension.js';
+import { ExtensionAdapter, ExtensionHub } from './adapters/extension.js';
 
 export interface BuiltApp {
   app: FastifyInstance;
@@ -65,12 +67,14 @@ export async function buildApp(
     productsChanged,
   });
 
-  const manager = new SessionManager(
-    db,
-    broadcaster,
-    opts.adapterFactory ?? createAdapterFactory({ eulerApiKey: config.EULER_API_KEY, fbGraphVersion: config.FB_GRAPH_VERSION }),
-    sales,
-  );
+  // Kênh qua tiện ích Chrome luôn nhận dữ liệu qua hub (kể cả khi test thay adapter khác)
+  const extensionHub = new ExtensionHub();
+  const baseFactory: AdapterFactory =
+    opts.adapterFactory ?? createAdapterFactory({ eulerApiKey: config.EULER_API_KEY, fbGraphVersion: config.FB_GRAPH_VERSION, extensionHub });
+  const adapterFactory: AdapterFactory = (ch, cb) =>
+    ch.connector === 'EXTENSION' ? new ExtensionAdapter(ch.id, cb, extensionHub) : baseFactory(ch, cb);
+
+  const manager = new SessionManager(db, broadcaster, adapterFactory, sales);
   const games = new GameService(db, (sid, platform, uid) => manager.userActivity(sid, platform, uid), {
     game: (sessionId, game) => broadcaster.toSession(sessionId, 'game', game),
     answer: (sessionId, payload) => broadcaster.toSession(sessionId, 'gameAnswer', payload),
@@ -105,12 +109,15 @@ export async function buildApp(
 
   app.get('/api/health', async () => ({ ok: true }));
   authRoutes(app, db, config);
-  await app.register(async (scope) => channelRoutes(scope, db, config));
+  await app.register(async (scope) => channelRoutes(scope, db, config, extensionHub));
   await app.register(async (scope) => sessionRoutes(scope, db, manager));
   await app.register(async (scope) => productRoutes(scope, db, sales));
   await app.register(async (scope) => salesRoutes(scope, db, sales, productsChanged));
   await app.register(async (scope) => shopRoutes(scope, db));
   await app.register(async (scope) => gameRoutes(scope, db, games));
+  await app.register(async (scope) =>
+    extensionRoutes(scope, db, extensionHub, config.EXTENSION_DIR ?? path.resolve(process.cwd(), '../extension')),
+  );
   await app.register(async (scope) => publicRoutes(scope, db, sales, games));
 
   // Phục vụ giao diện web đã build (nếu có)

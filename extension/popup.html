@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Checklive Connector</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon32.png" alt="" width="22" height="22" />
+      <b>Checklive Connector</b>
+    </header>
+
+    <section id="setup">
+      <label for="server">Địa chỉ server Checklive</label>
+      <input id="server" placeholder="https://checklive.tenmien.vn" autocomplete="off" />
+      <label for="token">Mã kết nối của kênh</label>
+      <input id="token" placeholder="clx_…" autocomplete="off" />
+      <label class="row"><input type="checkbox" id="skip" checked /> Bỏ qua bình luận đã có trước khi bấm Bắt đầu</label>
+      <button id="save" class="ghost">Lưu & kiểm tra kết nối</button>
+      <p id="who" class="muted"></p>
+    </section>
+
+    <section id="tab">
+      <div id="notfb" class="muted" hidden>Mở trang live Facebook (trang cá nhân, Group hoặc Fanpage) rồi bấm biểu tượng tiện ích để bắt đầu.</div>
+      <div id="fb" hidden>
+        <div class="stats">
+          <div><span id="detected">–</span><small>bình luận thấy trên trang</small></div>
+          <div><span id="sent">0</span><small>đã gửi lên Checklive</small></div>
+        </div>
+        <button id="toggle" class="primary">▶ Bắt đầu gửi bình luận</button>
+        <p id="status" class="muted"></p>
+        <p class="hint">Giữ tab này mở trong suốt buổi live, nên để ở cửa sổ riêng và không thu nhỏ. Tiện ích chỉ đọc bình luận đang hiển thị, không bấm hay gửi gì lên Facebook.</p>
+      </div>
+    </section>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -20,6 +20,7 @@
     "bcryptjs": "3.0.3",
     "exceljs": "4.4.0",
     "fastify": "5.12.8",
+    "jszip": "3.10.1",
     "socket.io": "4.8.4",
     "tiktok-live-connector": "2.5.0",
     "zod": "3.25.76"

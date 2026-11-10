@@ -2,10 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import type { Channel, Platform } from '../lib/types';
 import { Empty, PlatformBadge } from '../components/ui';
+import ExtensionGuide from '../components/ExtensionGuide';
 
 const HINT: Record<Platform, string> = {
   TIKTOK: 'Nhập @username hoặc dán link kênh TikTok. Theo dõi được cả kênh của người khác.',
-  FACEBOOK: 'Chỉ hỗ trợ Fanpage bạn quản trị (API chính thức). Cần Page ID và Page access token.',
+  FACEBOOK: 'Fanpage bạn quản trị: dùng API chính thức của Facebook, cần Page ID và Page access token.',
   SIMULATOR: 'Kênh giả lập tự sinh bình luận, like, share… để thử hệ thống khi chưa có live thật.',
 };
 
@@ -17,6 +18,7 @@ export default function ChannelsPage() {
   const [name, setName] = useState('');
   const [token, setToken] = useState('');
   const [isOwn, setIsOwn] = useState(true);
+  const [viaExtension, setViaExtension] = useState(false);
   const [error, setError] = useState('');
   const [checks, setChecks] = useState<Record<string, { ok: boolean; message: string } | 'loading'>>({});
 
@@ -31,7 +33,14 @@ export default function ChannelsPage() {
     try {
       await api('/api/channels', {
         method: 'POST',
-        body: { platform, handle, name: name || undefined, accessToken: platform === 'FACEBOOK' ? token : undefined, isOwn },
+        body: {
+          platform,
+          handle,
+          name: name || undefined,
+          accessToken: platform === 'FACEBOOK' && !viaExtension ? token : undefined,
+          isOwn,
+          connector: platform === 'FACEBOOK' && viaExtension ? 'EXTENSION' : 'API',
+        },
       });
       setHandle('');
       setName('');
@@ -76,13 +85,14 @@ export default function ChannelsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{c.name}</div>
                     <div className="truncate text-xs text-slate-500">
-                      {c.platform === 'FACEBOOK' ? `Page ID: ${c.handle}` : c.platform === 'TIKTOK' ? `@${c.handle}` : c.handle}
+                      {c.connector === 'EXTENSION' ? `Qua tiện ích Chrome · ${c.handle}` : c.platform === 'FACEBOOK' ? `Page ID: ${c.handle}` : c.platform === 'TIKTOK' ? `@${c.handle}` : c.handle}
                       {' · '}
                       {c.isOwn ? 'Kênh của tôi' : 'Kênh theo dõi'}
                     </div>
                     {ck && ck !== 'loading' && (
                       <div className={`mt-1 text-xs ${ck.ok ? 'text-emerald-700' : 'text-rose-700'}`}>{ck.message}</div>
                     )}
+                    {c.connector === 'EXTENSION' && <ExtensionGuide channel={c} onChanged={() => void load()} />}
                   </div>
                   <button className="btn-ghost py-1.5" onClick={() => check(c)} disabled={ck === 'loading'}>
                     {ck === 'loading' ? 'Đang kiểm tra…' : 'Kiểm tra'}
@@ -105,16 +115,41 @@ export default function ChannelsPage() {
               onClick={() => setPlatform(p)}
               className={`rounded-md py-1.5 text-sm font-medium ${platform === p ? 'bg-white shadow-sm' : 'text-slate-600'}`}
             >
-              {p === 'TIKTOK' ? 'TikTok' : p === 'FACEBOOK' ? 'Fanpage' : 'Giả lập'}
+              {p === 'TIKTOK' ? 'TikTok' : p === 'FACEBOOK' ? 'Facebook' : 'Giả lập'}
             </button>
           ))}
         </div>
-        <p className="text-xs text-slate-500">{HINT[platform]}</p>
-        <div>
-          <label className="label" htmlFor="handle">{platform === 'TIKTOK' ? 'Username / link kênh' : platform === 'FACEBOOK' ? 'Page ID' : 'Mã kênh giả lập'}</label>
-          <input id="handle" className="input" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder={platform === 'TIKTOK' ? '@tenshop' : platform === 'FACEBOOK' ? '1234567890' : 'demo'} required />
-        </div>
         {platform === 'FACEBOOK' && (
+          <div className="space-y-1 rounded-lg border border-slate-200 p-2 text-sm">
+            <label className="flex items-start gap-2">
+              <input type="radio" className="mt-1" checked={!viaExtension} onChange={() => setViaExtension(false)} />
+              <span><b>Fanpage của tôi</b> (API chính thức, ổn định, cần Page access token)</span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input type="radio" className="mt-1" checked={viaExtension} onChange={() => setViaExtension(true)} />
+              <span><b>Qua tiện ích Chrome</b>: trang cá nhân, Group, Fanpage người khác</span>
+            </label>
+          </div>
+        )}
+        <p className="text-xs text-slate-500">
+          {platform === 'FACEBOOK' && viaExtension
+            ? 'Dữ liệu do tiện ích Chrome đọc từ trang live bạn đang mở và gửi về. Sau khi thêm kênh sẽ có mã kết nối và hướng dẫn cài.'
+            : HINT[platform]}
+        </p>
+        <div>
+          <label className="label" htmlFor="handle">
+            {platform === 'TIKTOK' ? 'Username / link kênh' : platform === 'FACEBOOK' ? (viaExtension ? 'Link trang cá nhân / Group / Fanpage' : 'Page ID') : 'Mã kênh giả lập'}
+          </label>
+          <input
+            id="handle"
+            className="input"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            placeholder={platform === 'TIKTOK' ? '@tenshop' : platform === 'FACEBOOK' ? (viaExtension ? 'https://www.facebook.com/ten.cua.ban' : '1234567890') : 'demo'}
+            required
+          />
+        </div>
+        {platform === 'FACEBOOK' && !viaExtension && (
           <div>
             <label className="label" htmlFor="token">Page access token</label>
             <textarea id="token" className="input font-mono text-xs" rows={3} value={token} onChange={(e) => setToken(e.target.value)} required />

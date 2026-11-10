@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"><title>Shop Lan Anh đang phát trực tiếp | Facebook</title></head>
+<body>
+<!-- Trang giả lập cấu trúc trang live video Facebook (class ngẫu nhiên như trang thật) -->
+<div role="main">
+  <div role="article" aria-label="Video" class="x1n2onr6">
+    <video src=""></video>
+    <span class="x193iq5w"><span>1,2K người đang xem</span></span>
+    <a href="https://www.facebook.com/shoplananh" role="link"><span dir="auto">Shop Lan Anh</span></a>
+    <div dir="auto">Live xả hàng cuối tuần 🔥</div>
+  </div>
+  <div class="x78zum5" id="comments">
+    <!-- Bình luận có sẵn trước khi bấm Bắt đầu -->
+    <div role="article" aria-label="Bình luận của Nguyễn Thu Hà 3 phút trước" tabindex="-1" class="x1lliihq">
+      <div class="xqcrz7y"><a href="https://www.facebook.com/profile.php?id=100011112222&amp;comment_id=Y29tbWVudDoxMTFfMQ%3D%3D&amp;__cft__[0]=AZX" role="link" tabindex="0">
+        <svg aria-label="Nguyễn Thu Hà" role="img"><image xlink:href="https://scontent.xx.fbcdn.net/avatar-ha.jpg" href="https://scontent.xx.fbcdn.net/avatar-ha.jpg"></image></svg></a></div>
+      <div class="x1y1aw1k"><span class="xt0psk2"><a href="https://www.facebook.com/profile.php?id=100011112222&amp;comment_id=Y29tbWVudDoxMTFfMQ%3D%3D" role="link"><span class="x3nfvp2"><span dir="auto">Nguyễn Thu Hà</span></span></a></span>
+        <div class="x1lliihq" dir="auto"><div dir="auto" style="text-align: start;">A1 đỏ M</div></div></div>
+      <ul><li><div role="button" tabindex="0">Thích</div></li><li><div role="button" tabindex="0">Phản hồi</div></li>
+        <li><a href="https://www.facebook.com/shoplananh/videos/987654321/?comment_id=Y29tbWVudDoxMTFfMQ%3D%3D" role="link">3 phút</a></li></ul>
+    </div>
+  </div>
+</div>
+<script>
+  // Thêm bình luận giống cách Facebook chèn khi có bình luận mới
+  window.addComment = function ({ name, profile, text, commentId, parent, emoji, sticker }) {
+    const el = document.createElement('div');
+    el.setAttribute('role', 'article');
+    el.setAttribute('aria-label', (parent ? 'Phản hồi của ' : 'Bình luận của ') + name + ' vài giây trước');
+    el.className = 'x1lliihq x' + Math.random().toString(36).slice(2, 8);
+    const cid = commentId ? (parent ? '&reply_comment_id=' : '&comment_id=') + encodeURIComponent(commentId) : '';
+    const href = profile + (profile.includes('?') ? '' : '?') + cid.replace(/^&/, profile.includes('?') ? '&' : '');
+    el.innerHTML =
+      '<div><a role="link" href="' + href + '"><svg aria-label="' + name + '"><image href="https://scontent.xx.fbcdn.net/' + encodeURIComponent(name) + '.jpg"></image></svg></a></div>' +
+      '<div><span><a role="link" href="' + href + '"><span><span dir="auto">' + name + '</span></span></a></span>' +
+      (sticker ? '<div><img src="https://scontent.xx.fbcdn.net/sticker.png" alt="Nhãn dán"></div>' :
+        '<div dir="auto"><div dir="auto" style="text-align:start">' + text + (emoji ? ' <img src="x.png" alt="' + emoji + '" height="16">' : '') + '</div></div>') +
+      '</div><ul><li><div role="button">Thích</div></li><li><div role="button">Phản hồi</div></li><li><a href="https://www.facebook.com/shoplananh/videos/987654321/' + (commentId ? '?comment_id=' + encodeURIComponent(commentId) : '') + '">Vừa xong</a></li></ul>';
+    (parent ? document.querySelector(parent) : document.getElementById('comments')).appendChild(el);
+    return el;
+  };
+</script>
+</body>
+</html>

@@ -321,7 +321,7 @@ export class SessionManager {
         status: 'connecting', viewers: 0, updatedAt: Date.now(),
       });
       const adapter = this.createAdapter(
-        { id: ch.id, platform: ch.platform, handle: ch.handle, accessToken: ch.accessToken },
+        { id: ch.id, platform: ch.platform, handle: ch.handle, accessToken: ch.accessToken, connector: ch.connector },
         {
           onEvent: (e) => rs.handleEvent(ch.id, ch.platform, e),
           onViewers: (n) => rs.handleViewers(ch.id, ch.platform, n),

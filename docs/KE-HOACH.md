@@ -33,7 +33,7 @@
 | B9 | Cú pháp mã | Tự đặt mã trong phiên, có "chốt", có số lượng | Mã live tự đặt + bình luận "chốt"/"+1" gán cho SP đang bán + đọc số lượng |
 | B10 | Xác nhận đơn | Khách quét QR tự xác nhận + nhân viên xác nhận và chốt | Trang xác nhận qua QR/link + màn hình nhân viên duyệt đơn ✅ |
 | B10b | Thời gian giữ hàng | Cho chọn tuỳ ý | Chọn theo phiên (30 phút → 7 ngày / không giới hạn) + mặc định của shop ✅ |
-| 2b | Tiện ích Chrome cho FB trang cá nhân | Làm sau phần Game | Giai đoạn 3b |
+| 2b | Tiện ích Chrome cho FB trang cá nhân | Làm sau phần Game | Giai đoạn 3b ✅ |
 | B11 | Thanh toán | COD + chuyển khoản; **chưa cần** tự động đối soát | VietQR (tạo ngay trên server) + nhân viên bấm "Đã thanh toán" ✅ |
 | B12 | In phiếu / vận chuyển | Làm sau | Để giai đoạn 4 |
 | B13 | TikTok Shop | Chưa dùng | Chốt đơn qua bình luận TikTok không vướng chính sách TikTok Shop |
@@ -239,7 +239,8 @@ Doanh thu theo phiên và theo sản phẩm. **Phễu chuyển đổi:** bình l
 | **1. Nền tảng** | Tài khoản, kết nối kênh, phiên live, bảng điều khiển realtime, thống kê cơ bản, xuất Excel | 3–4 tuần — **bản đầu đã xong** (xem README) |
 | **2. Bán hàng** | Kho SP, giỏ phiên live, đọc cú pháp, đơn nháp, giữ hàng, trang xác nhận, nhắn tin FB, overlay SP | 3–4 tuần — **đã xong** (trừ tự nhắn tin / trả lời bình luận Facebook: cần app Meta + domain HTTPS, làm khi có server) |
 | **3. Game show** | Các loại game, kịch bản, overlay game, xuất log | 2–3 tuần — **đã xong**: đoán số, đoán chữ, đố vui, quay thưởng |
-| **3b. Tiện ích Chrome** | Đọc live Facebook trang cá nhân / Fanpage người khác (mục 2b) | 1–2 tuần — **tiếp theo** |
+| **3b. Tiện ích Chrome** | Đọc live Facebook trang cá nhân / Fanpage người khác (mục 2b) | 1–2 tuần — **đã xong**, cần thử trên Facebook thật |
+| **Tiếp theo** | Đưa lên VPS + chạy thử kênh thật (TikTok, Facebook qua tiện ích); sau đó: tự trả lời / nhắn tin Facebook, in phiếu & vận chuyển, đa shop | — |
 | **4. Mở rộng** | VietQR + đối soát, vận chuyển, AI phân loại bình luận, báo cáo nâng cao, đa shop + gói cước | tuỳ chọn |
 
 Thứ tự giai đoạn 2 và 3 có thể đảo, tuỳ bạn cần tính năng nào trước. **[CẦN CHỐT]**

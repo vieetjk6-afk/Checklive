@@ -11,6 +11,8 @@ const schema = z.object({
   FB_GRAPH_VERSION: z.string().default('v26.0'),
   /** Thư mục chứa webapp đã build (để server phục vụ luôn giao diện) */
   WEB_DIST: z.string().optional(),
+  /** Thư mục mã nguồn tiện ích Chrome (để cho tải về dạng .zip) */
+  EXTENSION_DIR: z.string().optional(),
   NODE_ENV: z.string().default('development'),
 });
 

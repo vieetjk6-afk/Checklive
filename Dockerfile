@@ -18,6 +18,8 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/server ./server
 COPY --from=build /app/web/dist ./web/dist
+# Mã nguồn tiện ích Chrome (server đóng gói .zip cho người dùng tải)
+COPY --from=build /app/extension ./extension
 WORKDIR /app/server
 EXPOSE 3000
 # Tự chạy migrate CSDL rồi khởi động server (phục vụ cả API và giao diện)

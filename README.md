@@ -82,6 +82,29 @@ Webapp theo dõi phiên live Facebook & TikTok: gom bình luận, thống kê t�
 |---|---|
 | <img src="docs/anh-game-overlay-so.png" width="420"> | <img src="docs/anh-game-overlay-chu.png" width="420"> |
 
+## Đã làm được (Giai đoạn 3b: Tiện ích Chrome cho Facebook)
+
+Dùng cho live Facebook mà API chính thức không đọc được: **trang cá nhân, Group, Fanpage của người khác**.
+
+<img src="docs/anh-tien-ich-popup.png" width="300" align="right">
+
+- Tiện ích **Checklive Connector** (Chrome / Cốc Cốc / Edge…) đọc bình luận đang hiển thị trên trang live Facebook bạn mở, rồi gửi về Checklive.
+- Bình luận đi vào cùng luồng xử lý như TikTok, nên **thống kê, chốt đơn và game đều dùng được**.
+- Mỗi kênh có **mã kết nối** riêng: chỉ gửi được vào đúng kênh đó; đổi mã thì mã cũ hết hiệu lực ngay.
+- Bỏ qua bình luận đã có trước khi bấm Bắt đầu. Facebook vẽ lại bình luận cũ khi cuộn thì cũng không bị gửi trùng (dùng `comment_id` của Facebook).
+- Mạng chập chờn thì tự gửi lại. Trang tải lại khi đang bật thì tự bật lại.
+- Popup hiện **số bình luận thấy trên trang**, giúp biết ngay tiện ích có đọc được trang hay không.
+- Chỉ **đọc**, không bấm và không đăng gì lên Facebook.
+
+**Cài đặt:** Kênh → Facebook → "Qua tiện ích Chrome" → thêm kênh → làm theo hướng dẫn hiện dưới kênh (tải `.zip` đã điền sẵn địa chỉ server, `chrome://extensions` → Chế độ nhà phát triển → Tải tiện ích đã giải nén → dán mã kết nối).
+
+**Giới hạn:**
+- Không biết ai like / share. Thời điểm bình luận là lúc tiện ích nhìn thấy (trễ khoảng 1 giây), không phải giờ Facebook ghi nhận.
+- Phải giữ tab live mở trên máy tính suốt buổi, nên để ở cửa sổ riêng, không thu nhỏ.
+- Facebook đổi giao diện có thể làm tiện ích ngừng đọc được. Khi đó chỉ cần sửa `extension/fb-extract.js`.
+
+<br clear="right">
+
 ## Chạy bằng Docker (khuyên dùng khi đưa lên VPS)
 
 ```bash
@@ -141,5 +164,7 @@ server/   API (Fastify) + Socket.IO + bộ kết nối nền tảng + thống k�
   src/sales/      parser.ts (đọc cú pháp chốt đơn), orderService.ts (giữ hàng, danh sách chờ, xác nhận), vietqr.ts
   src/games/      matcher.ts (so khớp đáp án, ô chữ), gameService.ts (nhận câu trả lời, quay số, chọn người thắng)
 web/      Giao diện React + Vite + Tailwind
+extension/  Tiện ích Chrome: fb-extract.js (đọc bình luận Facebook), content.js, background.js, popup
+            Kiểm tra bộ đọc: node extension/test/extract.test.cjs (cần Playwright)
 docs/     Kế hoạch sản phẩm
 ```

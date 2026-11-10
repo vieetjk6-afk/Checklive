@@ -12,6 +12,8 @@ export interface Channel {
   handle: string;
   isOwn: boolean;
   hasAccessToken: boolean;
+  connector: 'API' | 'EXTENSION';
+  connectorToken: string | null;
   createdAt: string;
 }
 
