@@ -59,7 +59,9 @@ export function authRoutes(app: FastifyInstance, db: DB, config: Config) {
       path: '/',
       httpOnly: true,
       sameSite: 'lax',
-      secure: config.NODE_ENV === 'production',
+      // Qua HTTPS (tên miền / Cloudflare Tunnel) thì cookie chỉ gửi qua HTTPS.
+      // Truy cập trong mạng nội bộ bằng http://IP-máy:3000 vẫn đăng nhập được.
+      secure: req.protocol === 'https',
       maxAge: 30 * 24 * 3600,
     });
     return { id: user.id, email: user.email, name: user.name, role: user.role };

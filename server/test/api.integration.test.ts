@@ -60,6 +60,17 @@ describe.skipIf(!url)('API + realtime (kênh giả lập)', () => {
     expect((await api('/api/auth/me')).body.email).toBe('admin@test.local');
   });
 
+  it('cookie đăng nhập: HTTPS (qua Cloudflare) thì Secure, mạng nội bộ http thì không', async () => {
+    const login = (headers: Record<string, string> = {}) =>
+      fetch(base + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify({ email: 'admin@test.local', password: 'matkhau123' }),
+      });
+    expect((await login()).headers.get('set-cookie')).not.toMatch(/Secure/i);
+    expect((await login({ 'x-forwarded-proto': 'https' })).headers.get('set-cookie')).toMatch(/Secure/i);
+  });
+
   it('đổi mật khẩu', async () => {
     expect((await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ current: 'sai', next: 'matkhaumoi123' }) })).status).toBe(400);
     expect((await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ current: 'matkhau123', next: 'ngan' }) })).status).toBe(400);

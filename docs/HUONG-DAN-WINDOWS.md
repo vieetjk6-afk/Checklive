@@ -75,13 +75,27 @@ Không cần làm gì: Checklive tự chạy cùng Docker Desktop khi bật máy
 
 **Overlay OBS**: dùng link `https://live.tenshop.vn/overlay/...` lấy ở tab Bán hàng / Game của phiên live.
 
-## 4. Sao lưu dữ liệu
+## 4. Cài trên 1 máy, live trên máy khác
+
+Máy cài Checklive làm **máy chủ** (để bật thường xuyên). Bạn live trên máy khác, hoặc điện thoại, đều được:
+
+| Việc | Làm ở đâu |
+|---|---|
+| Đọc bình luận **TikTok** và **Fanpage (API)** | Checklive tự kết nối từ máy chủ. Phát live từ máy nào / điện thoại nào cũng được, máy live không cần cài gì. |
+| Màn hình quản lý (theo dõi, chốt đơn, game) | Mở `https://live.tenshop.vn` trên máy live, điện thoại, máy nhân viên… Nhiều người mở cùng lúc được. |
+| **Overlay OBS** trên máy live | Trong OBS thêm nguồn **Browser** với link `https://live.tenshop.vn/overlay/...` (lấy ở tab Bán hàng / Game). |
+| **Tiện ích Chrome** (Facebook trang cá nhân / Group) | Cài trên máy nào sẽ **mở tab live Facebook suốt buổi**: máy chủ (tiện vì luôn bật) hoặc máy live đều được. Tải tại `https://live.tenshop.vn/downloads/checklive-connector.zip`. |
+
+- Nếu không phát live trên máy chủ thì máy chủ không cần mạnh: **8 GB RAM là đủ**.
+- **Chưa có tên miền, các máy dùng chung mạng wifi / LAN:** mở `http://IP-máy-chủ:3000` (xem IP bằng lệnh `ipconfig` trên máy chủ, VD `192.168.1.10`). Lần đầu nếu Windows hỏi cho phép Docker qua tường lửa, chọn **Private networks**. Cách này **chỉ dùng được trong mạng nhà**: khách bấm link xác nhận đơn từ bên ngoài sẽ không vào được, nên khi dùng thật vẫn cần tên miền.
+
+## 5. Sao lưu dữ liệu
 
 - Checklive **tự sao lưu 6 tiếng 1 lần** vào thư mục `C:\Checklive\backups` và giữ 14 ngày gần nhất.
 - Sao lưu chỉ nằm trên cùng máy, nên **hỏng ổ cứng là mất cả bản sao lưu**. Hãy chép thư mục `backups` ra ngoài thường xuyên. Cách dễ nhất: cài **Google Drive cho máy tính** và cho đồng bộ thư mục `backups`.
 - Khôi phục: chạy `5-khoi-phuc.bat`, nhập tên file, gõ `DONG Y`. Script tự sao lưu dữ liệu hiện tại trước khi thay thế.
 
-## 5. Gặp lỗi thường gặp
+## 6. Gặp lỗi thường gặp
 
 | Hiện tượng | Cách xử lý |
 |---|---|
@@ -92,6 +106,6 @@ Không cần làm gì: Checklive tự chạy cùng Docker Desktop khi bật máy
 | Kênh TikTok báo "Không kết nối được" | Kênh phải đang live. Có thể TikTok đang giới hạn: thử lại sau ít phút, hoặc thêm `EULER_API_KEY` vào `.env`. |
 | Muốn đổi mật khẩu quản trị | Vào **Cài đặt → Đổi mật khẩu đăng nhập**. (`ADMIN_PASSWORD` trong `.env` chỉ dùng ở lần chạy đầu tiên, sửa sau đó không có tác dụng.) |
 
-## 6. Khi nào nên chuyển sang thuê server?
+## 7. Khi nào nên chuyển sang thuê server?
 
-Khi cần Checklive chạy 24/7 mà không muốn để máy tính bật liên tục, hoặc khi bán tool cho nhiều shop. Lúc đó chuyển sang VPS / Railway + Supabase. Dữ liệu chuyển được bằng bản sao lưu ở mục 4.
+Khi cần Checklive chạy 24/7 mà không muốn để máy tính bật liên tục, hoặc khi bán tool cho nhiều shop. Lúc đó chuyển sang VPS / Railway + Supabase. Dữ liệu chuyển được bằng bản sao lưu ở mục 5.
