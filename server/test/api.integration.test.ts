@@ -60,6 +60,16 @@ describe.skipIf(!url)('API + realtime (kênh giả lập)', () => {
     expect((await api('/api/auth/me')).body.email).toBe('admin@test.local');
   });
 
+  it('đổi mật khẩu', async () => {
+    expect((await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ current: 'sai', next: 'matkhaumoi123' }) })).status).toBe(400);
+    expect((await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ current: 'matkhau123', next: 'ngan' }) })).status).toBe(400);
+    expect((await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ current: 'matkhau123', next: 'matkhaumoi123' }) })).status).toBe(200);
+    const login = (password: string) =>
+      fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'admin@test.local', password }) });
+    expect((await login('matkhau123')).status).toBe(401);
+    expect((await login('matkhaumoi123')).status).toBe(200);
+  });
+
   it('chạy phiên live: nhận bình luận realtime, thống kê, lưu CSDL, xuất Excel', async () => {
     const tk = await api('/api/channels', { method: 'POST', body: JSON.stringify({ platform: 'TIKTOK', handle: 'https://www.tiktok.com/@Shop.ABC/live' }) });
     expect(tk.status).toBe(200);

@@ -105,6 +105,10 @@ Dùng cho live Facebook mà API chính thức không đọc được: **trang c�
 
 <br clear="right">
 
+## Chạy trên máy tính Windows (không cần thuê server)
+
+Xem **[docs/HUONG-DAN-WINDOWS.md](docs/HUONG-DAN-WINDOWS.md)**: Docker Desktop + Cloudflare Tunnel (link HTTPS bằng tên miền riêng). Có sẵn các file nhấp đúp trong thư mục `windows/` để khởi động, dừng, xem nhật ký, sao lưu / khôi phục, cập nhật. Cơ sở dữ liệu chạy trong Docker và **tự sao lưu 6 tiếng/lần** vào thư mục `backups/`.
+
 ## Chạy bằng Docker (khuyên dùng khi đưa lên VPS)
 
 ```bash

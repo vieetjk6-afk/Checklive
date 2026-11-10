@@ -1,10 +1,44 @@
 import { useEffect, useState, type FormEvent } from 'react';
+
+function PasswordCard() {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [msg, setMsg] = useState('');
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (next !== again) return setMsg('Hai lần nhập mật khẩu mới không giống nhau');
+    try {
+      await api('/api/auth/password', { method: 'POST', body: { current, next } });
+      setMsg('✓ Đã đổi mật khẩu');
+      setCurrent('');
+      setNext('');
+      setAgain('');
+    } catch (err) {
+      setMsg((err as Error).message);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="card space-y-3 p-4">
+      <h2 className="font-semibold">Đổi mật khẩu đăng nhập</h2>
+      <input className="input" type="password" placeholder="Mật khẩu hiện tại" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input className="input" type="password" placeholder="Mật khẩu mới (ít nhất 8 ký tự)" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} />
+        <input className="input" type="password" placeholder="Nhập lại mật khẩu mới" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
+      </div>
+      <div className="flex items-center gap-3">
+        <button className="btn-ghost">Đổi mật khẩu</button>
+        {msg && <span className="text-sm text-slate-600">{msg}</span>}
+      </div>
+    </form>
+  );
+}
 import { api } from '../lib/api';
 import { BANKS, HOLD_OPTIONS } from '../lib/format';
 import type { ShopSettings } from '../lib/types';
 import Qr from '../components/Qr';
 
-export default function SettingsPage() {
+function SettingsPage() {
   const [s, setS] = useState<ShopSettings | null>(null);
   const [customBin, setCustomBin] = useState(false);
   const [msg, setMsg] = useState('');
@@ -116,5 +150,14 @@ export default function SettingsPage() {
         {msg && <span className="text-sm text-slate-600">{msg}</span>}
       </div>
     </form>
+  );
+}
+
+export default function SettingsPageWithPassword() {
+  return (
+    <div className="mx-auto max-w-xl space-y-4">
+      <SettingsPage />
+      <PasswordCard />
+    </div>
   );
 }

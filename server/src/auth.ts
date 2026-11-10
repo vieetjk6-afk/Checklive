@@ -70,6 +70,18 @@ export function authRoutes(app: FastifyInstance, db: DB, config: Config) {
     return { ok: true };
   });
 
+  /** Đổi mật khẩu (cần nhập mật khẩu hiện tại) */
+  app.post('/api/auth/password', { preHandler: requireAuth }, async (req, reply) => {
+    const body = z.object({ current: z.string().min(1), next: z.string().min(8, 'Mật khẩu mới cần ít nhất 8 ký tự').max(200) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: body.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ' });
+    const user = await db.user.findUnique({ where: { id: req.user.uid } });
+    if (!user || !(await bcrypt.compare(body.data.current, user.passwordHash))) {
+      return reply.code(400).send({ error: 'Mật khẩu hiện tại không đúng' });
+    }
+    await db.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(body.data.next, 10) } });
+    return { ok: true };
+  });
+
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req, reply) => {
     const user = await db.user.findUnique({ where: { id: req.user.uid } });
     if (!user) return reply.code(401).send({ error: 'Chưa đăng nhập' });

@@ -1,6 +1,9 @@
 # Chạy toàn bộ Checklive: docker compose up -d --build
-# Trước khi chạy: copy .env.example thành .env và sửa JWT_SECRET, ADMIN_PASSWORD
+# Có Cloudflare Tunnel:     docker compose --profile tunnel up -d --build
+# (Trên Windows: nhấp đúp windows\1-khoi-dong.bat)
+# Trước khi chạy: copy .env.example thành .env và sửa JWT_SECRET, ADMIN_PASSWORD (và TUNNEL_TOKEN nếu dùng tunnel)
 services:
+  # Cơ sở dữ liệu PostgreSQL, dữ liệu lưu trong volume "pgdata" (không mất khi tắt máy / khởi động lại)
   db:
     image: postgres:16
     restart: unless-stopped
@@ -16,6 +19,7 @@ services:
       timeout: 5s
       retries: 10
 
+  # Checklive (server + giao diện web)
   app:
     build: .
     restart: unless-stopped
@@ -32,6 +36,41 @@ services:
       FB_GRAPH_VERSION: ${FB_GRAPH_VERSION:-v26.0}
     ports:
       - "3000:3000"
+
+  # Sao lưu tự động: 6 tiếng 1 lần vào thư mục ./backups, giữ 14 ngày gần nhất
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: checklive
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/checklive-$$(date +%Y%m%d-%H%M).dump
+          pg_dump -h db -U checklive -Fc -f "$$f.tmp" checklive && mv "$$f.tmp" "$$f" && echo "Đã sao lưu $$f"
+          find /backups -name 'checklive-*.dump' -mtime +14 -delete
+          find /backups -name '*.tmp' -mmin +60 -delete
+          sleep 21600
+        done
+
+  # Cloudflare Tunnel: đưa Checklive ra Internet bằng tên miền HTTPS, không cần mở cổng router.
+  # Chỉ chạy khi bật profile "tunnel" và có TUNNEL_TOKEN trong .env.
+  # Trên Cloudflare, đặt Public Hostname trỏ tới: http://app:3000
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
 
 volumes:
   pgdata:
