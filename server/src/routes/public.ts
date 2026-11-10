@@ -4,6 +4,7 @@ import type { DB } from '../db.js';
 import { maskPhone } from '../core/text.js';
 import { SalesError, variantLabel, type OrderService } from '../sales/orderService.js';
 import { buildVietQrPayload } from '../sales/vietqr.js';
+import type { GameService } from '../games/gameService.js';
 
 /**
  * Trang công khai (không cần đăng nhập): tra cứu đơn, khách tự xác nhận, overlay cho OBS.
@@ -53,8 +54,8 @@ const confirmSchema = z.object({
   variantChoices: z.record(z.string(), z.string()).optional(),
 });
 
-export function publicRoutes(app: FastifyInstance, db: DB, sales: OrderService) {
-  const limitRead = rateLimiter(120);
+export function publicRoutes(app: FastifyInstance, db: DB, sales: OrderService, games?: GameService) {
+  const limitRead = rateLimiter(300);
   const limitLookup = rateLimiter(20);
   const limitWrite = rateLimiter(10);
 
@@ -135,6 +136,14 @@ export function publicRoutes(app: FastifyInstance, db: DB, sales: OrderService) 
         at: i.createdAt,
       })),
     };
+  });
+
+  /** Game đang hiện trên overlay (không lộ đáp án trước khi công bố) */
+  app.get('/api/public/s/:publicId/game', { preHandler: limitRead }, async (req, reply) => {
+    const { publicId } = req.params as { publicId: string };
+    const s = await findSession(publicId);
+    if (!s) return reply.code(404).send({ error: 'Không tìm thấy phiên live' });
+    return { shopName: s.shop.name, game: games ? await games.overlay(s.id) : null, now: Date.now() };
   });
 
   /** Xem đơn theo link / QR bí mật */

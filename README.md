@@ -55,6 +55,33 @@ Webapp theo dõi phiên live Facebook & TikTok: gom bình luận, thống kê t�
 
 > Lưu ý với TikTok: không gửi tin nhắn riêng cho khách được, nên khách tra cứu đơn bằng @username. Người khác biết username cũng có thể mở đơn đó (thông tin cá nhân luôn được che), vì vậy nhân viên vẫn cần bấm **Chốt đơn** sau khi kiểm tra.
 
+## Đã làm được (Giai đoạn 3: Game show)
+
+![Điều khiển game](docs/anh-game-dieu-khien.png)
+
+- **Kịch bản game**: soạn sẵn các game trước buổi live, khi live chỉ cần bấm **Mở**.
+- **4 loại game**:
+  - 🎲 **Đoán số**: khách bình luận 1 con số trong khoảng (VD 1–100). Shop bấm **Quay số** (ngẫu nhiên) hoặc nhập số tự quay. **Ai đoán trúng sớm nhất thắng**.
+  - 🔤 **Đoán chữ**: ô chữ hiện trên màn hình, shop mở dần từng chữ (bấm vào ô hoặc mở ngẫu nhiên). **Ai bình luận đúng cả từ sớm nhất thắng**.
+  - ❓ **Đố vui**: câu hỏi + nhiều cách ghi đáp án được chấp nhận.
+  - 🎁 **Quay thưởng**: bốc thăm ngẫu nhiên trong số người bình luận từ khoá (VD "tham gia").
+- **Luật công bằng**:
+  - Mỗi người chỉ tính câu trả lời đầu tiên.
+  - Bình luận rõ ràng không phải câu trả lời (hỏi hàng, mã sản phẩm, số điện thoại…) **không bị tính mất lượt**.
+  - Không phân biệt dấu ("ao dai" = "Áo dài"), chấp nhận "đáp án là áo dài".
+  - Xếp hạng theo **thời điểm bình luận**, không theo thời điểm hệ thống nhận được. Bình luận gửi trước lúc khoá nhưng đến trễ vài giây (hay gặp với Facebook) vẫn được tính.
+  - Bình luận gửi trước khi mở game không được tính.
+- **Tự khoá** sau N giây (đếm ngược trên màn hình) hoặc khi đã đủ số người trả lời đúng.
+- **Phần thưởng tự đặt** theo thứ hạng (Giải nhất, Giải nhì…).
+- **Điều kiện nhận giải**: đã thả tim / share / follow. Chỉ kiểm tra được với TikTok, và chỉ tính thao tác trong buổi live. Với người chơi Facebook, shop chọn bỏ qua điều kiện hoặc không tính.
+- **Loại người thắng** không hợp lệ thì người kế tiếp tự lên thay.
+- **Overlay game** cho OBS / TikTok LIVE Studio: hiệu ứng quay số (không lộ kết quả trước giờ công bố), ô chữ, đồng hồ đếm ngược, người thắng và phần thưởng.
+- **Xuất Excel**: người thắng và toàn bộ câu trả lời kèm thời điểm, dùng để đối chiếu khi có khiếu nại.
+
+| Overlay đoán số | Overlay đoán chữ |
+|---|---|
+| <img src="docs/anh-game-overlay-so.png" width="420"> | <img src="docs/anh-game-overlay-chu.png" width="420"> |
+
 ## Chạy bằng Docker (khuyên dùng khi đưa lên VPS)
 
 ```bash
@@ -112,6 +139,7 @@ server/   API (Fastify) + Socket.IO + bộ kết nối nền tảng + thống k�
   src/adapters/   tiktok.ts, facebook.ts, simulator.ts — mỗi nền tảng 1 bộ chuyển đổi về định dạng sự kiện chung
   src/live/       sessionManager.ts (chạy phiên), stats.ts (tổng hợp), persistence.ts, exportXlsx.ts
   src/sales/      parser.ts (đọc cú pháp chốt đơn), orderService.ts (giữ hàng, danh sách chờ, xác nhận), vietqr.ts
+  src/games/      matcher.ts (so khớp đáp án, ô chữ), gameService.ts (nhận câu trả lời, quay số, chọn người thắng)
 web/      Giao diện React + Vite + Tailwind
 docs/     Kế hoạch sản phẩm
 ```

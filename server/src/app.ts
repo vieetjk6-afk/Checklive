@@ -17,12 +17,15 @@ import { salesRoutes } from './routes/sales.js';
 import { publicRoutes } from './routes/public.js';
 import { shopRoutes } from './routes/shop.js';
 import { OrderService } from './sales/orderService.js';
+import { GameService } from './games/gameService.js';
+import { gameRoutes } from './routes/games.js';
 
 export interface BuiltApp {
   app: FastifyInstance;
   io: SocketServer;
   manager: SessionManager;
   sales: OrderService;
+  games: GameService;
 }
 
 export async function buildApp(
@@ -68,6 +71,12 @@ export async function buildApp(
     opts.adapterFactory ?? createAdapterFactory({ eulerApiKey: config.EULER_API_KEY, fbGraphVersion: config.FB_GRAPH_VERSION }),
     sales,
   );
+  const games = new GameService(db, (sid, platform, uid) => manager.userActivity(sid, platform, uid), {
+    game: (sessionId, game) => broadcaster.toSession(sessionId, 'game', game),
+    answer: (sessionId, payload) => broadcaster.toSession(sessionId, 'gameAnswer', payload),
+  });
+  manager.setGames(games);
+  await games.recover();
 
   // Xác thực Socket.IO bằng cookie đăng nhập
   io.use((socket, next) => {
@@ -101,7 +110,8 @@ export async function buildApp(
   await app.register(async (scope) => productRoutes(scope, db, sales));
   await app.register(async (scope) => salesRoutes(scope, db, sales, productsChanged));
   await app.register(async (scope) => shopRoutes(scope, db));
-  await app.register(async (scope) => publicRoutes(scope, db, sales));
+  await app.register(async (scope) => gameRoutes(scope, db, games));
+  await app.register(async (scope) => publicRoutes(scope, db, sales, games));
 
   // Phục vụ giao diện web đã build (nếu có)
   const webDist = config.WEB_DIST ?? path.resolve(process.cwd(), '../web/dist');
@@ -124,10 +134,11 @@ export async function buildApp(
 
   app.addHook('onClose', async () => {
     clearInterval(expiryTimer);
+    games.shutdown();
     for (const t of productTimers.values()) clearTimeout(t);
     await manager.shutdown();
     io.close();
   });
 
-  return { app, io, manager, sales };
+  return { app, io, manager, sales, games };
 }

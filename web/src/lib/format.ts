@@ -111,3 +111,17 @@ export const BANKS: { bin: string; name: string }[] = [
   { bin: '970449', name: 'LPBank' },
   { bin: '970454', name: 'BVBank (Timo)' },
 ];
+
+export const GAME_TYPE: Record<string, { label: string; icon: string; hint: string }> = {
+  NUMBER_GUESS: { label: 'Đoán số', icon: '🎲', hint: 'Khách bình luận 1 con số. Quay ra kết quả, ai đoán trúng sớm nhất thắng.' },
+  WORD_GUESS: { label: 'Đoán chữ', icon: '🔤', hint: 'Ô chữ mở dần. Ai bình luận đúng cả từ sớm nhất thắng.' },
+  QUIZ: { label: 'Đố vui', icon: '❓', hint: 'Câu hỏi có đáp án. Ai trả lời đúng sớm nhất thắng.' },
+  LUCKY_DRAW: { label: 'Quay thưởng', icon: '🎁', hint: 'Bốc thăm ngẫu nhiên trong số người bình luận hợp lệ.' },
+};
+
+export const GAME_STATUS: Record<string, { label: string; cls: string }> = {
+  DRAFT: { label: 'Chưa mở', cls: 'bg-slate-100 text-slate-600' },
+  OPEN: { label: 'Đang nhận trả lời', cls: 'bg-rose-100 text-rose-700' },
+  CLOSED: { label: 'Đã khoá', cls: 'bg-amber-100 text-amber-800' },
+  DONE: { label: 'Đã có kết quả', cls: 'bg-emerald-100 text-emerald-700' },
+};

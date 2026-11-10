@@ -11,6 +11,7 @@ import SettingsPage from './pages/SettingsPage';
 import LookupPage from './pages/public/LookupPage';
 import ConfirmPage from './pages/public/ConfirmPage';
 import OverlayPage from './pages/public/OverlayPage';
+import GameOverlayPage from './pages/public/GameOverlayPage';
 
 /** Trang công khai cho khách / OBS: không cần đăng nhập */
 const PUBLIC_PREFIXES = ['/s/', '/o/', '/overlay/'];
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/s/:publicId" element={<LookupPage />} />
         <Route path="/o/:token" element={<ConfirmPage />} />
         <Route path="/overlay/:publicId" element={<OverlayPage />} />
+        <Route path="/overlay/:publicId/game" element={<GameOverlayPage />} />
       </Routes>
     );
   }

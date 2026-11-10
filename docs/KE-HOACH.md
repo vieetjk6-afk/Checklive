@@ -37,7 +37,9 @@
 | B11 | Thanh toán | COD + chuyển khoản; **chưa cần** tự động đối soát | VietQR (tạo ngay trên server) + nhân viên bấm "Đã thanh toán" ✅ |
 | B12 | In phiếu / vận chuyển | Làm sau | Để giai đoạn 4 |
 | B13 | TikTok Shop | Chưa dùng | Chốt đơn qua bình luận TikTok không vướng chính sách TikTok Shop |
-| C14 | Game | Đoán số quay, đoán chữ… | Vòng quay số + đoán số, ô chữ mở dần, đố vui, quay may mắn |
+| C14 | Game | Đoán số quay, đoán chữ… | Vòng quay số + đoán số, ô chữ mở dần, đố vui, quay may mắn ✅ |
+| C14b | Luật thắng | Đoán số: ai đoán trúng sớm nhất. Đoán chữ: đoán cả từ, ai sớm nhất. Mỗi người tính câu đầu tiên | Xếp theo thời điểm bình luận, N người sớm nhất ✅ |
+| C14c | Phần thưởng | Hiện lên màn hình, phần thưởng tự đặt | Giải theo thứ hạng, hiện trên overlay, xuất Excel ✅ |
 | C15 | Thiết bị live | Điện thoại, máy tính, OBS | Overlay cho OBS/TikTok LIVE Studio. Khi live bằng điện thoại: điều khiển game trên thiết bị thứ hai, công bố kết quả bằng bình luận trả lời (FB) |
 | C16 | Điều kiện chơi game | Like, share, follow | **Chỉ TikTok kiểm tra được.** Facebook chỉ kiểm tra được "đã bình luận" |
 | D17 | Ưu tiên | Thống kê → Bán hàng → Game | Đúng thứ tự lộ trình mục 5 |
@@ -236,8 +238,8 @@ Doanh thu theo phiên và theo sản phẩm. **Phễu chuyển đổi:** bình l
 | **0. Thử nghiệm kỹ thuật** | Kết nối Fanpage + TikTok thật, nhận bình luận realtime, lưu DB, đo độ trễ | ~1 tuần — **code xong, cần chạy thử với kênh thật** |
 | **1. Nền tảng** | Tài khoản, kết nối kênh, phiên live, bảng điều khiển realtime, thống kê cơ bản, xuất Excel | 3–4 tuần — **bản đầu đã xong** (xem README) |
 | **2. Bán hàng** | Kho SP, giỏ phiên live, đọc cú pháp, đơn nháp, giữ hàng, trang xác nhận, nhắn tin FB, overlay SP | 3–4 tuần — **đã xong** (trừ tự nhắn tin / trả lời bình luận Facebook: cần app Meta + domain HTTPS, làm khi có server) |
-| **3. Game show** | Các loại game, kịch bản, overlay game, xuất log | 2–3 tuần — **tiếp theo** |
-| **3b. Tiện ích Chrome** | Đọc live Facebook trang cá nhân / Fanpage người khác (mục 2b) | 1–2 tuần |
+| **3. Game show** | Các loại game, kịch bản, overlay game, xuất log | 2–3 tuần — **đã xong**: đoán số, đoán chữ, đố vui, quay thưởng |
+| **3b. Tiện ích Chrome** | Đọc live Facebook trang cá nhân / Fanpage người khác (mục 2b) | 1–2 tuần — **tiếp theo** |
 | **4. Mở rộng** | VietQR + đối soát, vận chuyển, AI phân loại bình luận, báo cáo nâng cao, đa shop + gói cước | tuỳ chọn |
 
 Thứ tự giai đoạn 2 và 3 có thể đảo, tuỳ bạn cần tính năng nào trước. **[CẦN CHỐT]**

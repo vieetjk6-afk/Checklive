@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { io, type Socket } from 'socket.io-client';
 import { api } from '../lib/api';
 import { SESSION_STATUS, fmtDateTime, fmtDuration, fmtNum } from '../lib/format';
-import type { Activity, ChannelState, Comment, Order, Platform, SessionDetail, SessionProduct, Stats } from '../lib/types';
+import type { Activity, ChannelState, Comment, Game, GameAnswer, Order, Platform, SessionDetail, SessionProduct, Stats } from '../lib/types';
 import ActivityChart from '../components/ActivityChart';
 import ActivityList from '../components/ActivityList';
 import CommentFeed from '../components/CommentFeed';
@@ -14,8 +14,9 @@ import SalesTab from '../components/sales/SalesTab';
 import OrdersTab from '../components/sales/OrdersTab';
 import SellingBar from '../components/sales/SellingBar';
 import ManualOrder from '../components/sales/ManualOrder';
+import GamesTab from '../components/games/GamesTab';
 
-type Tab = 'live' | 'sales' | 'orders';
+type Tab = 'live' | 'sales' | 'orders' | 'games';
 
 const MAX_COMMENTS = 2000;
 const sig = (c: Comment) => `${c.platform}|${c.user?.id ?? ''}|${c.platformTs}|${c.content}`;
@@ -36,6 +37,9 @@ export default function SessionPage() {
   const [products, setProducts] = useState<SessionProduct[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [manualFor, setManualFor] = useState<Comment | null>(null);
+  const [games, setGames] = useState<Game[]>([]);
+  const [overlayGameId, setOverlayGameId] = useState<string | null>(null);
+  const [gameAnswers, setGameAnswers] = useState<Record<string, GameAnswer[]>>({});
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab) || 'live';
   const setTab = (t: Tab) => setParams(t === 'live' ? {} : { tab: t }, { replace: true });
@@ -43,6 +47,14 @@ export default function SessionPage() {
 
   const loadProducts = useCallback(() => {
     api<SessionProduct[]>(`/api/sessions/${id}/products`).then(setProducts).catch(() => undefined);
+  }, [id]);
+  const loadGames = useCallback(() => {
+    api<{ overlayGameId: string | null; games: Game[] }>(`/api/sessions/${id}/games`)
+      .then((r) => {
+        setGames(r.games);
+        setOverlayGameId(r.overlayGameId);
+      })
+      .catch(() => undefined);
   }, [id]);
   const upsertOrder = useCallback((o: Order) => {
     setOrders((prev) => {
@@ -79,6 +91,7 @@ export default function SessionPage() {
     setActivities([]);
     loadSession().catch((e) => setError(e.message));
     loadProducts();
+    loadGames();
     api<Order[]>(`/api/sessions/${id}/orders`).then(setOrders).catch(() => undefined);
     api<Stats>(`/api/sessions/${id}/stats`).then(setStats).catch(() => undefined);
     api<{ items: Comment[]; nextBefore: string | null }>(`/api/sessions/${id}/comments?limit=200`)
@@ -87,7 +100,7 @@ export default function SessionPage() {
         setNextBefore(r.nextBefore);
       })
       .catch(() => undefined);
-  }, [id, loadSession, addComments, loadProducts]);
+  }, [id, loadSession, addComments, loadProducts, loadGames]);
 
   // Kết nối realtime
   useEffect(() => {
@@ -108,6 +121,19 @@ export default function SessionPage() {
     socket.on('ended', () => void loadSession());
     socket.on('products', (p: SessionProduct[]) => setProducts(p));
     socket.on('order', (o: Order) => upsertOrder(o));
+    socket.on('game', (g: Game) =>
+      setGames((prev) => {
+        const i = prev.findIndex((x) => x.id === g.id);
+        if (i === -1) return [...prev, g].sort((a, b) => a.sortOrder - b.sortOrder);
+        const next = prev.slice();
+        next[i] = g;
+        return next;
+      }),
+    );
+    socket.on('gameAnswer', (p: { gameId: string; answer: GameAnswer; answersCount: number; correctCount: number }) => {
+      setGameAnswers((prev) => ({ ...prev, [p.gameId]: [p.answer, ...(prev[p.gameId] ?? [])].slice(0, 100) }));
+      setGames((prev) => prev.map((g) => (g.id === p.gameId ? { ...g, answersCount: p.answersCount, correctCount: p.correctCount } : g)));
+    });
     socket.on('commentTag', (t: { key: string; tag: string; tagKind: Comment['tagKind'] }) =>
       setComments((prev) => prev.map((c) => (c.key === t.key ? { ...c, tag: t.tag, tagKind: t.tagKind } : c))),
     );
@@ -191,12 +217,13 @@ export default function SessionPage() {
       {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
       {/* Tab */}
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="no-scrollbar -mx-4 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:px-0">
         {(
           [
             ['live', 'Theo dõi'],
             ['sales', `Bán hàng${products.length ? ` (${products.length})` : ''}`],
             ['orders', `Đơn hàng${orders.length ? ` (${orders.length})` : ''}`],
+            ['games', `Game${games.some((g) => g.status === 'OPEN') ? ' ●' : games.length ? ` (${games.length})` : ''}`],
           ] as [Tab, string][]
         ).map(([k, label]) => (
           <button
@@ -211,6 +238,9 @@ export default function SessionPage() {
 
       {tab === 'sales' && <SalesTab sessionId={id} products={products} onProductsChanged={loadProducts} />}
       {tab === 'orders' && <OrdersTab sessionId={id} orders={orders} products={products} />}
+      {tab === 'games' && (
+        <GamesTab sessionId={id} publicId={session.publicId} games={games} overlayGameId={overlayGameId} answers={gameAnswers} onReload={loadGames} />
+      )}
       {tab === 'live' && (
       <>
       {/* Trạng thái từng kênh */}

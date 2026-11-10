@@ -102,6 +102,9 @@ model LiveSession {
   minutes       SessionMinute[]
   products      SessionProduct[]
   orders        Order[]
+  games         Game[]
+  /// Game đang hiện trên overlay
+  overlayGameId String?
 }
 
 model SessionChannel {
@@ -380,4 +383,103 @@ model OrderItem {
   createdAt        DateTime        @default(now())
 
   @@index([sessionProductId, status, createdAt])
+}
+
+// ───────────────────────── GAME SHOW ─────────────────────────
+
+enum GameType {
+  /// Đoán số: khách bình luận số, quay ra kết quả, ai đoán trúng sớm nhất thắng
+  NUMBER_GUESS
+  /// Đoán chữ: ô chữ mở dần, ai đoán đúng cả từ sớm nhất thắng
+  WORD_GUESS
+  /// Đố vui: câu hỏi + đáp án (chấp nhận nhiều cách ghi)
+  QUIZ
+  /// Quay số may mắn: bốc ngẫu nhiên trong số người bình luận hợp lệ
+  LUCKY_DRAW
+}
+
+enum GameStatus {
+  DRAFT
+  /// Đang nhận câu trả lời
+  OPEN
+  /// Đã khoá, chờ quay / công bố
+  CLOSED
+  /// Đã có kết quả
+  DONE
+}
+
+model Game {
+  id           String       @id @default(cuid())
+  sessionId    String
+  session      LiveSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type         GameType
+  title        String
+  /// Câu hỏi / gợi ý hiển thị cho khán giả
+  question     String?
+  /// Cấu hình theo loại game: { min, max } | { answer, revealed[] } | { answers[] } | { keyword }
+  config       Json         @default("{}")
+  winnersCount Int          @default(1)
+  /// Phần thưởng theo thứ hạng; 1 dòng = áp dụng cho tất cả người thắng
+  prizes       String[]     @default([])
+  /// Điều kiện: { like, share, follow, facebookPolicy: "skip" | "exclude" }
+  conditions   Json         @default("{}")
+  /// Mỗi người chỉ tính câu trả lời đầu tiên
+  oneAttempt   Boolean      @default(true)
+  /// Tự khoá sau N giây (null = khoá bằng tay)
+  durationSec  Int?
+  status       GameStatus   @default(DRAFT)
+  sortOrder    Int          @default(0)
+  openedAt     DateTime?
+  closedAt     DateTime?
+  finishedAt   DateTime?
+  /// Kết quả (VD số quay được)
+  result       String?
+  /// Overlay giấu kết quả tới thời điểm này (hiệu ứng quay)
+  revealAt     DateTime?
+  createdAt    DateTime     @default(now())
+  answers      GameAnswer[]
+  winners      GameWinner[]
+
+  @@index([sessionId, status])
+}
+
+model GameAnswer {
+  id             String   @id @default(cuid())
+  gameId         String
+  game           Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  platform       Platform
+  platformUserId String
+  userName       String?
+  userHandle     String?
+  avatarUrl      String?
+  content        String
+  /// Giá trị đã đọc được (số đoán, đáp án đã chuẩn hoá…)
+  value          String?
+  correct        Boolean  @default(false)
+  platformTs     DateTime
+  receivedAt     DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([gameId, correct, platformTs])
+  @@index([gameId, platform, platformUserId])
+}
+
+model GameWinner {
+  id             String   @id @default(cuid())
+  gameId         String
+  game           Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  rank           Int
+  platform       Platform
+  platformUserId String
+  userName       String?
+  userHandle     String?
+  avatarUrl      String?
+  answer         String?
+  answeredAt     DateTime?
+  prize          String?
+  /// Bị loại (nhân viên loại vì không hợp lệ)
+  disqualified   Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([gameId, rank])
 }

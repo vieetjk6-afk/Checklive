@@ -16,6 +16,8 @@ const COMMENTS = [
   'A2 đen L 1', '0987.654.321 chốt A4', 'đặt 2 cái A1', 'đã follow', 'quá rẻ luôn', 'có bảo hành không',
 ];
 
+const GAME_GUESSES = ['áo dài', 'Áo Dài', 'ao dai', 'nón lá', 'áo bà ba', 'con mèo', 'hoa sen', 'đáp án là áo dài'];
+
 const GIFTS = [
   { name: 'Hoa hồng', value: 1 },
   { name: 'Kẹo bông', value: 5 },
@@ -74,7 +76,15 @@ export class SimulatorAdapter implements LiveAdapter {
     const user = pick(this.users);
     const r = Math.random();
     if (r < 0.45) {
-      this.cb.onEvent({ type: 'comment', user, content: pick(COMMENTS), externalId: `c${Date.now()}${Math.random()}` });
+      // Trộn thêm bình luận kiểu chơi game (đoán số, đoán chữ, tham gia quay thưởng)
+      const g = Math.random();
+      const content =
+        g < 0.18 ? String(1 + Math.floor(Math.random() * 100))
+        : g < 0.24 ? `em đoán ${1 + Math.floor(Math.random() * 100)}`
+        : g < 0.32 ? pick(GAME_GUESSES)
+        : g < 0.37 ? 'tham gia'
+        : pick(COMMENTS);
+      this.cb.onEvent({ type: 'comment', user, content, externalId: `c${Date.now()}${Math.random()}` });
     } else if (r < 0.75) {
       this.cb.onEvent({ type: 'like', user, count: 1 + Math.floor(Math.random() * 15) });
     } else if (r < 0.82) {

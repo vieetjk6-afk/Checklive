@@ -272,6 +272,10 @@ export class StatsAggregator {
     };
   }
 
+  getUser(platform: Platform, id: string): UserAgg | undefined {
+    return this.users.get(userKey(platform, id));
+  }
+
   allUsers(): UserAgg[] {
     return [...this.users.values()];
   }

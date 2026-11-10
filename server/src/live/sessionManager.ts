@@ -5,6 +5,7 @@ import type { AdapterFactory } from '../adapters/index.js';
 import { loadAggregator, saveAggregates, saveEvents } from './persistence.js';
 import type { StatsAggregator, StatsSnapshot } from './stats.js';
 import type { OrderService } from '../sales/orderService.js';
+import type { GameService } from '../games/gameService.js';
 
 /** Bình luận gửi xuống giao diện */
 export interface CommentDTO {
@@ -33,7 +34,7 @@ export interface ActivityDTO {
   platformTs: number;
 }
 
-export type SessionEvent = 'state' | 'stats' | 'comment' | 'activity' | 'ended' | 'commentTag' | 'order' | 'products';
+export type SessionEvent = 'state' | 'stats' | 'comment' | 'activity' | 'ended' | 'commentTag' | 'order' | 'products' | 'game' | 'gameAnswer';
 
 export interface Broadcaster {
   toSession(sessionId: string, event: SessionEvent, payload: unknown): void;
@@ -72,6 +73,8 @@ class RunningSession {
   private lastChannelInfo = new Map<string, string>();
   /** Hàng đợi xử lý chốt đơn: xử lý tuần tự theo thứ tự bình luận đến */
   private salesQueue: Promise<void> = Promise.resolve();
+  /** Hàng đợi xử lý câu trả lời game (tách riêng để không làm chậm chốt đơn) */
+  private gameQueue: Promise<void> = Promise.resolve();
 
   constructor(
     readonly id: string,
@@ -79,11 +82,12 @@ class RunningSession {
     private db: DB,
     private out: Broadcaster,
     private sales?: OrderService,
+    private games?: GameService,
   ) {}
 
-  /** Chờ xử lý xong các bình luận đang trong hàng đợi chốt đơn */
-  drain(): Promise<void> {
-    return this.salesQueue;
+  /** Chờ xử lý xong các bình luận đang trong hàng đợi */
+  async drain(): Promise<void> {
+    await Promise.all([this.salesQueue, this.gameQueue]);
   }
 
   startTimers() {
@@ -128,6 +132,14 @@ class RunningSession {
 
     if (e.type === 'comment') {
       this.out.toSession(this.id, 'comment', toCommentDTO(e));
+      const games = this.games;
+      if (games) {
+        this.gameQueue = this.gameQueue.then(() =>
+          games
+            .handleComment(this.id, { platform, user: e.user, content: e.content ?? '', platformTs: e.platformTs, receivedAt: e.receivedAt })
+            .catch((err) => console.error(`[session ${this.id}] lỗi xử lý game`, err)),
+        );
+      }
       const sales = this.sales;
       if (sales) {
         // Lưu bình luận sau khi xử lý chốt đơn xong để lưu kèm kết quả (tag)
@@ -247,7 +259,22 @@ export class SessionManager {
     private out: Broadcaster,
     private createAdapter: AdapterFactory,
     private sales?: OrderService,
+    private games?: GameService,
   ) {}
+
+  /** Like / share / follow của 1 người trong phiên (dùng cho điều kiện game) */
+  async userActivity(sessionId: string, platform: Platform, platformUserId: string) {
+    const live = this.running.get(sessionId)?.stats.getUser(platform, platformUserId);
+    if (live) return { likes: live.likes, shares: live.shares, follows: live.follows };
+    const row = await this.db.sessionUser.findUnique({
+      where: { sessionId_platform_platformUserId: { sessionId, platform, platformUserId } },
+    });
+    return row ? { likes: row.likes, shares: row.shares, follows: row.follows } : undefined;
+  }
+
+  setGames(games: GameService) {
+    this.games = games;
+  }
 
   isRunning(sessionId: string) {
     return this.running.has(sessionId);
@@ -277,7 +304,7 @@ export class SessionManager {
     }
 
     const stats = await loadAggregator(this.db, sessionId);
-    const rs = new RunningSession(sessionId, stats, this.db, this.out, this.sales);
+    const rs = new RunningSession(sessionId, stats, this.db, this.out, this.sales, this.games);
     this.running.set(sessionId, rs);
 
     if (session.status !== 'RUNNING') {

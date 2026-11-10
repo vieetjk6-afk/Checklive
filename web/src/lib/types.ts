@@ -192,3 +192,76 @@ export interface ShopSettings {
   bankAccountName: string | null;
   defaultHoldMinutes: number | null;
 }
+
+// ───────── Game show ─────────
+
+export type GameType = 'NUMBER_GUESS' | 'WORD_GUESS' | 'QUIZ' | 'LUCKY_DRAW';
+export type GameStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'DONE';
+
+export interface GameConfig {
+  min?: number;
+  max?: number;
+  answer?: string;
+  revealed?: number[];
+  answers?: string[];
+  keyword?: string;
+  accentInsensitive?: boolean;
+}
+
+export interface GameConditions {
+  like?: boolean;
+  share?: boolean;
+  follow?: boolean;
+  facebookPolicy?: 'skip' | 'exclude';
+}
+
+export interface GameWinner {
+  id: string;
+  rank: number;
+  platform: Platform;
+  platformUserId: string;
+  userName: string | null;
+  userHandle: string | null;
+  avatarUrl: string | null;
+  answer: string | null;
+  answeredAt: string | null;
+  prize: string | null;
+  disqualified: boolean;
+}
+
+export interface Game {
+  id: string;
+  sessionId: string;
+  type: GameType;
+  title: string;
+  question: string | null;
+  config: GameConfig;
+  winnersCount: number;
+  prizes: string[];
+  conditions: GameConditions;
+  oneAttempt: boolean;
+  durationSec: number | null;
+  status: GameStatus;
+  sortOrder: number;
+  openedAt: string | null;
+  closedAt: string | null;
+  finishedAt: string | null;
+  result: string | null;
+  revealAt: string | null;
+  answersCount: number;
+  correctCount: number;
+  winners: GameWinner[];
+}
+
+export interface GameAnswer {
+  id: string;
+  platform: Platform;
+  platformUserId: string;
+  userName: string | null;
+  userHandle: string | null;
+  avatarUrl: string | null;
+  content: string;
+  value: string | null;
+  correct: boolean;
+  platformTs: string;
+}
