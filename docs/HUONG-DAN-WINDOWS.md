@@ -77,7 +77,11 @@ Không cần làm gì: Checklive tự chạy cùng Docker Desktop khi bật máy
 
 ## 4. Cài trên 1 máy, live trên máy khác
 
-Máy cài Checklive làm **máy chủ** (để bật thường xuyên). Bạn live trên máy khác, hoặc điện thoại, đều được:
+Máy cài Checklive làm **máy chủ** (để bật thường xuyên). Bạn live trên máy khác, hoặc điện thoại, đều được.
+
+**Máy chủ không cần đăng nhập tài khoản TikTok / Facebook nào.** Tài khoản chỉ đăng nhập trên máy live:
+- **Máy chủ**: chạy Checklive + cơ sở dữ liệu + Cloudflare Tunnel. Không mở, không đăng nhập TikTok / Facebook.
+- **Máy live**: đăng nhập TikTok / Facebook để phát live; mở Checklive bằng trình duyệt; cài tiện ích Chrome nếu live Facebook trang cá nhân / Group.
 
 | Việc | Làm ở đâu |
 |---|---|
